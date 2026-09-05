@@ -1048,60 +1048,387 @@ a:hover {
   gap: 24px;
 }
 
-/* ===== Responsive ===== */
-@media (max-width: 768px) {
-  .navbar-top {
-    flex-direction: column;
-    gap: 10px;
-    padding: 12px 16px;
-  }
+/* ===== RESPONSIVE — Mobile First ===== */
 
-  .navbar-links {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .sub-header-content {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .form-grid {
-    grid-template-columns: 1fr;
+/* ── Tablet: 1024px ── */
+@media (max-width: 1024px) {
+  .main-content {
+    padding: 20px 18px;
   }
 
   .stats-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
 
+  .toggle-wrapper {
+    flex-wrap: wrap;
+  }
+}
+
+/* ── Mobile: 768px ── */
+@media (max-width: 768px) {
+  /* Navbar */
+  .navbar-top {
+    padding: 8px 14px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .navbar-brand {
+    font-size: 13px;
+    gap: 8px;
+  }
+
+  .navbar-brand img {
+    height: 30px;
+    width: 30px;
+  }
+
+  .navbar-badge {
+    display: none;
+  }
+
+  .navbar-links {
+    width: 100%;
+    justify-content: flex-end;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .navbar-links a,
+  .navbar-links button {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  /* Sub header */
+  .sub-header {
+    padding: 14px 14px;
+  }
+
+  .sub-header-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 10px;
+  }
+
+  .sub-header-logo {
+    width: 52px;
+    height: 52px;
+  }
+
+  .sub-header-text h1 {
+    font-size: 17px;
+  }
+
+  /* Main */
   .main-content {
-    padding: 16px;
+    padding: 12px 12px;
+  }
+
+  /* Stats */
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .stat-card {
+    padding: 14px 12px;
+  }
+
+  .stat-card .stat-value {
+    font-size: 22px;
+  }
+
+  /* Admin Tabs — scrollable row */
+  .admin-tabs {
+    gap: 2px;
+    padding: 3px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .admin-tabs::-webkit-scrollbar { display: none; }
+
+  .admin-tab {
+    padding: 8px 12px;
+    font-size: 11px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Toggle buttons */
+  .toggle-wrapper {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .toggle-btn {
+    padding: 7px 12px;
+    font-size: 12px;
+    flex: 1;
+    text-align: center;
+    min-width: 90px;
+  }
+
+  /* Cards */
+  .card-header {
+    padding: 12px 14px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .card-header h2 {
+    font-size: 14px;
+  }
+
+  .card-body {
+    padding: 14px;
+  }
+
+  /* Seat matrix — horizontal scroll wrapper */
+  .seat-matrix-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .seat-matrix-header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
   }
 
   .seat-matrix-table {
     font-size: 10px;
+    min-width: 700px; /* force horizontal scroll rather than squish */
   }
 
   .seat-matrix-table th,
   .seat-matrix-table td {
-    padding: 4px 3px;
+    padding: 4px 4px;
   }
 
+  .seat-matrix-footer {
+    flex-direction: column;
+    gap: 4px;
+    font-size: 10px;
+  }
+
+  /* Forms */
+  .form-container {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .form-group input,
+  .form-group select {
+    padding: 10px 12px;
+    font-size: 14px; /* prevent iOS zoom on focus */
+  }
+
+  /* Filters bar */
   .filters-bar {
     flex-direction: column;
     align-items: stretch;
+    gap: 8px;
+  }
+
+  .filters-bar input,
+  .filters-bar select {
+    width: 100%;
+    font-size: 14px;
+  }
+
+  /* Data tables — horizontal scroll */
+  .card-body[style*="overflow"] {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .data-table {
+    min-width: 560px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  /* Buttons */
+  .btn-lg {
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+
+  /* Round controls */
+  .round-controls {
+    flex-direction: column;
+  }
+
+  .round-controls .btn {
+    width: 100%;
+  }
+
+  /* Dashboard grid */
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  /* Allocation result */
+  .allocation-result {
+    padding: 16px;
+  }
+
+  .allocation-result h3 {
+    font-size: 16px;
+  }
+
+  /* Footer */
+  .footer {
+    padding: 20px 16px;
+  }
+
+  .footer-logos img {
+    height: 38px;
+  }
+
+  /* Instructions */
+  .instructions-card ol {
+    padding: 12px 16px 12px 28px;
+    font-size: 12px;
+  }
+
+  /* Upgrade panel inner layout */
+  .form-group[style*="display: flex"] {
+    flex-direction: column !important;
+  }
+
+  /* Alert */
+  .alert {
+    font-size: 12px;
+    padding: 10px 12px;
   }
 }
 
+/* ── Small Mobile: 480px ── */
 @media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .stat-card .stat-value {
+    font-size: 20px;
+  }
+
+  .stat-card .stat-label {
+    font-size: 10px;
+  }
+
+  .navbar-brand .brand-text {
+    display: none; /* show only logo on tiny screens */
+  }
+
+  .sub-header-text h1 {
+    font-size: 15px;
+  }
+
+  .banner {
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    padding: 8px 12px;
+  }
+
+  .card-header h2 {
+    font-size: 13px;
+  }
+
+  .admin-tab {
+    padding: 7px 10px;
+    font-size: 10px;
+  }
+
+  .seat-matrix-table {
+    font-size: 9px;
+  }
+
+  .btn {
+    font-size: 13px;
+    padding: 9px 14px;
+  }
+
+  .toggle-btn {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+
+  .modal {
+    width: 96%;
+    max-height: 92vh;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+}
+
+/* ── Extra Small: 360px ── */
+@media (max-width: 360px) {
   .stats-grid {
     grid-template-columns: 1fr;
   }
+
+  .main-content {
+    padding: 10px 10px;
+  }
+
+  .navbar-top {
+    padding: 8px 10px;
+  }
+
+  .sub-header-text h1 {
+    font-size: 14px;
+  }
+
+  .form-group input,
+  .form-group select {
+    padding: 9px 10px;
+  }
 }
+
+/* ── Print / no-hover fix for touch devices ── */
+@media (hover: none) {
+  .stat-card:hover {
+    transform: none;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    transform: none;
+  }
+
+  .card:hover {
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+
 
 /* ===== Seat Update Animation ===== */
 .seat-flash {

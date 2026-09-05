@@ -28,8 +28,13 @@ const allocationSchema = new mongoose.Schema({
   },
   allocatedBy: {
     type: String,
-    enum: ['manual', 'auto'],
+    enum: ['manual', 'auto', 'upgrade'],
     required: true
+  },
+  upgradeFromBranch: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Branch',
+    default: null
   },
   allocatedByAdmin: {
     type: mongoose.Schema.Types.ObjectId,
