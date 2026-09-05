@@ -1,0 +1,194 @@
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import axios from 'axios';
+import { useSocket } from '../context/SocketContext';
+import SeatMatrix from '../components/SeatMatrix';
+
+function Landing() {
+  const [branches, setBranches] = useState([]);
+  const [round, setRound] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
+  const [flashId, setFlashId] = useState(null);
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Listen for real-time updates
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on('seat-update', (data) => {
+      setBranches(prev => prev.map(b =>
+        b._id === data.branchId ? data.branch : b
+      ));
+      setFlashId(data.branchId);
+      setTimeout(() => setFlashId(null), 1000);
+    });
+
+    socket.on('seats-reset', (data) => {
+      setBranches(data.branches);
+    });
+
+    socket.on('round-update', (data) => {
+      setRound(data.round);
+    });
+
+    return () => {
+      socket.off('seat-update');
+      socket.off('seats-reset');
+      socket.off('round-update');
+    };
+  }, [socket]);
+
+  const fetchData = async () => {
+    try {
+      const [branchRes, roundRes] = await Promise.all([
+        axios.get('/api/branches'),
+        axios.get('/api/round/current')
+      ]);
+      setBranches(branchRes.data);
+      setRound(roundRes.data);
+    } catch (err) {
+      console.error('Fetch error:', err);
+    }
+    setLoading(false);
+  };
+
+  const filteredBranches = branches.filter(b => {
+    if (filter === 'all') return true;
+    return b.type === filter;
+  });
+
+  const totalVacant = branches.reduce((sum, b) => sum + (b.totalVacant || 0), 0);
+  const aidedCount = branches.filter(b => b.type === 'Aided').length;
+  const unaidedCount = branches.filter(b => b.type === 'Unaided').length;
+
+  if (loading) {
+    return (
+      <div className="loading">
+        <div className="spinner"></div>
+        <p>Loading seat data...</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Sub Header */}
+      <div className="sub-header">
+        <div className="sub-header-content">
+          <svg className="sub-header-logo" width="64" height="64" viewBox="0 0 64 64" fill="none">
+            <circle cx="32" cy="32" r="30" stroke="#8B1A1A" strokeWidth="2" fill="rgba(139,26,26,0.05)"/>
+            <text x="32" y="24" textAnchor="middle" fill="#8B1A1A" fontSize="12" fontWeight="700" fontFamily="serif">WCE</text>
+            <text x="32" y="36" textAnchor="middle" fill="#8B1A1A" fontSize="8" fontWeight="400" fontFamily="serif">SANGLI</text>
+            <text x="32" y="46" textAnchor="middle" fill="rgba(139,26,26,0.5)" fontSize="6" fontFamily="serif">EST. 1947</text>
+          </svg>
+          <div className="sub-header-text">
+            <h1>Walchand College of Engineering, Sangli</h1>
+            <div className="portal-label">
+              ACAP ROUND / <span className="spot">SPOT ROUND</span> · ADMISSION REGISTRATION PORTAL
+            </div>
+            <div className="institute-type">A Government Aided Autonomous Institute</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Round Status Banner */}
+      {round && (
+        <div className={`banner ${round.isDemo ? 'demo-banner' : ''}`}>
+          {round.isDemo
+            ? '⚠ DEMO MODE — This data is for testing. Actual round data will be updated by admin.'
+            : `THIS FORM IS ONLY FOR STUDENTS APPLYING FOR 1ST YEAR ACAP / SPOT ROUND REGISTRATION — ${round.name}`
+          }
+        </div>
+      )}
+
+      <main className="main-content">
+        {/* Instructions */}
+        <div className="instructions-card">
+          <h3>Read Before You Begin — Candidate Instructions</h3>
+          <ol>
+            <li>Only candidates whose names appear in the MHT-CET Final Merit List are eligible to register through this portal.</li>
+            <li>This registration portal is applicable only to candidates who have appeared for either the MHT-CET or JEE examination.</li>
+            <li>Candidates who completed their CET registration after the declaration of the Final Merit List are also eligible to register through this portal.</li>
+            <li>Candidates who did not complete CET registration after the declaration of the Final Merit List but have appeared for either the MHT-CET or JEE examination must select the "NON-CAP" option during registration.</li>
+            <li>Candidates are advised to carefully verify all the details fetched from the CET/JEE database. If any discrepancy is found, please contact the WCE Admission Cell immediately before proceeding further.</li>
+            <li>Enter your personal details, including your Email ID, Mobile Number, and other required information.</li>
+            <li>Seat availability shown below updates in <strong>real-time</strong> as allocations are made.</li>
+          </ol>
+        </div>
+
+        {/* Stats Summary */}
+        <div className="stats-grid">
+          <div className="stat-card">
+            <div className="stat-icon" style={{ background: 'var(--primary-light)', color: 'var(--primary)' }}>🎓</div>
+            <div className="stat-value">{branches.length}</div>
+            <div className="stat-label">Total Branches</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon" style={{ background: 'var(--success-light)', color: 'var(--success)' }}>💺</div>
+            <div className="stat-value">{totalVacant}</div>
+            <div className="stat-label">Total Vacant Seats</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon" style={{ background: 'var(--info-light)', color: 'var(--info)' }}>🏛️</div>
+            <div className="stat-value">{aidedCount}</div>
+            <div className="stat-label">Aided Branches</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon" style={{ background: 'var(--warning-light)', color: 'var(--warning)' }}>🏢</div>
+            <div className="stat-value">{unaidedCount}</div>
+            <div className="stat-label">Unaided Branches</div>
+          </div>
+        </div>
+
+        {/* Filter + CTA */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+          <div className="toggle-wrapper">
+            <button
+              className={`toggle-btn ${filter === 'all' ? 'active' : ''}`}
+              onClick={() => setFilter('all')}
+            >All Branches</button>
+            <button
+              className={`toggle-btn ${filter === 'Aided' ? 'active' : ''}`}
+              onClick={() => setFilter('Aided')}
+            >Aided</button>
+            <button
+              className={`toggle-btn ${filter === 'Unaided' ? 'active' : ''}`}
+              onClick={() => setFilter('Unaided')}
+            >Unaided</button>
+          </div>
+          <Link to="/register" className="btn btn-primary">
+            Register for Spot Round →
+          </Link>
+        </div>
+
+        {/* Seat Matrices */}
+        {filteredBranches.map(branch => (
+          <SeatMatrix key={branch._id} branch={branch} flashId={flashId} />
+        ))}
+
+        {filteredBranches.length === 0 && (
+          <div className="alert alert-info">No branches found for the selected filter.</div>
+        )}
+
+        {/* Legend */}
+        <div className="card" style={{ marginTop: '20px' }}>
+          <div className="card-body" style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.8' }}>
+            <strong>F:</strong> Only For Female, <strong>K:</strong> Konkan Seats, <strong>HU:</strong> Home University,
+            <strong> OHU:</strong> Other than Home University, <strong>Common Reserved:</strong> Combined Common for All Reserved Categories
+            <br />
+            <strong>Note:</strong> Vacancy position may vary. Candidates are advised to fill all eligible Choice Code of their choice irrespective of vacancy position.
+            <br /><br />
+            <em>STATE CET CELL, Mumbai</em>
+          </div>
+        </div>
+      </main>
+    </>
+  );
+}
+
+export default Landing;

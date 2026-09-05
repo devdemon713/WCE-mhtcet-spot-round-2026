@@ -1,0 +1,468 @@
+const express = require('express');
+const router = express.Router();
+const User = require('../models/User');
+const Branch = require('../models/Branch');
+const Allocation = require('../models/Allocation');
+const { auth, adminOnly } = require('../middleware/auth');
+
+// Helper: Decrement a seat from a branch
+async function decrementSeat(branchId, seatPool, seatCategory, seatType) {
+  const branch = await Branch.findById(branchId);
+  if (!branch) throw new Error('Branch not found');
+
+  if (seatPool === 'stateLevel' || seatPool === 'pwd' || seatPool === 'def') {
+    if (!branch[seatPool] || !branch[seatPool][seatCategory] || branch[seatPool][seatCategory][seatType] <= 0) {
+      throw new Error('No seats available in this category');
+    }
+    branch[seatPool][seatCategory][seatType] -= 1;
+  } else {
+    // Scalar pools: ewsSeats, minoritySeats, orphanSeats, pwdCommonReserved, defCommonReserved
+    if ((branch[seatPool] || 0) <= 0) {
+      throw new Error('No seats available in this pool');
+    }
+    branch[seatPool] -= 1;
+  }
+
+  await branch.save();
+  return branch;
+}
+
+// Helper: Increment a seat back (for cancellation)
+async function incrementSeat(branchId, seatPool, seatCategory, seatType) {
+  const branch = await Branch.findById(branchId);
+  if (!branch) throw new Error('Branch not found');
+
+  if (seatPool === 'stateLevel' || seatPool === 'pwd' || seatPool === 'def') {
+    if (!branch[seatPool][seatCategory]) {
+      branch[seatPool][seatCategory] = { general: 0, ladies: 0 };
+    }
+    branch[seatPool][seatCategory][seatType] += 1;
+  } else {
+    branch[seatPool] = (branch[seatPool] || 0) + 1;
+  }
+
+  await branch.save();
+  return branch;
+}
+
+// @route   POST /api/allocation/upgrade
+// @desc    Branch Upgrade — student moves from CAP-allotted branch to a better spot-round branch.
+//          FROM branch seat → +1 (returned to pool, visible live)
+//          TO   branch seat → -1 (new allocation)
+router.post('/upgrade', auth, adminOnly, async (req, res) => {
+  try {
+    const {
+      studentId,
+      fromBranchId, fromSeatPool, fromSeatCategory, fromSeatType,
+      toBranchId,   toSeatPool,   toSeatCategory,   toSeatType
+    } = req.body;
+
+    if (!studentId || !fromBranchId || !toBranchId) {
+      return res.status(400).json({ message: 'studentId, fromBranchId, and toBranchId are required' });
+    }
+
+    // Validate student exists
+    const student = await User.findById(studentId);
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    // Validate FROM branch exists
+    const fromBranch = await Branch.findById(fromBranchId);
+    if (!fromBranch) return res.status(404).json({ message: 'Source (FROM) branch not found' });
+
+    // Validate TO branch has available seat
+    const toBranch = await Branch.findById(toBranchId);
+    if (!toBranch) return res.status(404).json({ message: 'Target (TO) branch not found' });
+
+    const toPool = toSeatPool || 'stateLevel';
+    const fromPool = fromSeatPool || 'stateLevel';
+
+    // Check TO branch seat availability
+    let toHasSeats = false;
+    if (toPool === 'stateLevel' || toPool === 'pwd' || toPool === 'def') {
+      toHasSeats = !!(toBranch[toPool] && toBranch[toPool][toSeatCategory] && toBranch[toPool][toSeatCategory][toSeatType] > 0);
+    } else {
+      toHasSeats = (toBranch[toPool] || 0) > 0;
+    }
+    if (!toHasSeats) {
+      return res.status(400).json({ message: `No vacant seat available in target branch (${toBranch.name}) for selected category/type` });
+    }
+
+    const io = req.app.get('io');
+
+    // Step 1: Return FROM branch seat to pool (+1)
+    const updatedFromBranch = await incrementSeat(fromBranchId, fromPool, fromSeatCategory, fromSeatType);
+
+    // Step 2: Decrement TO branch seat (-1)
+    const updatedToBranch = await decrementSeat(toBranchId, toPool, toSeatCategory, toSeatType);
+
+    // Step 3: Cancel any existing allocation record for this student
+    await Allocation.updateMany(
+      { student: studentId, status: { $ne: 'cancelled' } },
+      { status: 'cancelled' }
+    );
+
+    // Step 4: Create new upgrade allocation record
+    const allocation = new Allocation({
+      student: studentId,
+      branch: toBranchId,
+      seatCategory: toSeatCategory,
+      seatType: toSeatType,
+      seatPool: toPool,
+      allocatedBy: 'upgrade',
+      allocatedByAdmin: req.user._id,
+      status: 'allocated',
+      upgradeFromBranch: fromBranchId
+    });
+    await allocation.save();
+
+    // Step 5: Update student record
+    student.allocationStatus = 'allocated';
+    student.allocatedBranch = toBranchId;
+    student.allocatedSeatCategory = toSeatCategory;
+    student.allocatedSeatType = toSeatType;
+    await student.save();
+
+    // Step 6: Broadcast BOTH branch updates live to all connected users
+    io.emit('seat-update', { branchId: updatedFromBranch._id, branch: updatedFromBranch.toJSON(), updatedAt: new Date() });
+    io.emit('seat-update', { branchId: updatedToBranch._id,   branch: updatedToBranch.toJSON(),   updatedAt: new Date() });
+    io.emit('allocation-update', { studentId: student._id, updatedAt: new Date() });
+
+    console.log(`🔄 Branch Upgrade: ${student.applicationId} | ${fromBranch.name} → ${toBranch.name}`);
+
+    const populated = await Allocation.findById(allocation._id)
+      .populate('student', '-password')
+      .populate('branch');
+
+    res.status(201).json({
+      message: `Branch upgrade successful: ${fromBranch.name} → ${toBranch.name}`,
+      allocation: populated,
+      fromBranch: updatedFromBranch,
+      toBranch: updatedToBranch
+    });
+  } catch (error) {
+    console.error('Branch upgrade error:', error);
+    res.status(500).json({ message: error.message || 'Server error during branch upgrade' });
+  }
+});
+
+// @route   POST /api/allocation/manual
+// @desc    Admin manually allocates a student to a branch/seat
+
+router.post('/manual', auth, adminOnly, async (req, res) => {
+  try {
+    const { studentId, branchId, seatCategory, seatType, seatPool } = req.body;
+
+    const student = await User.findById(studentId);
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+    if (student.allocationStatus === 'allocated' || student.allocationStatus === 'confirmed') {
+      return res.status(400).json({ message: 'Student already has an active allocation' });
+    }
+
+    const pool = seatPool || 'stateLevel';
+    const branch = await decrementSeat(branchId, pool, seatCategory, seatType);
+
+    const allocation = new Allocation({
+      student: studentId,
+      branch: branchId,
+      seatCategory,
+      seatType,
+      seatPool: pool,
+      allocatedBy: 'manual',
+      allocatedByAdmin: req.user._id,
+      status: 'allocated'
+    });
+    await allocation.save();
+
+    student.allocationStatus = 'allocated';
+    student.allocatedBranch = branchId;
+    student.allocatedSeatCategory = seatCategory;
+    student.allocatedSeatType = seatType;
+    await student.save();
+
+    const io = req.app.get('io');
+    io.emit('seat-update', { branchId: branch._id, branch: branch.toJSON(), updatedAt: new Date() });
+    io.emit('allocation-update', { studentId: student._id, updatedAt: new Date() });
+
+    const populated = await Allocation.findById(allocation._id)
+      .populate('student', '-password')
+      .populate('branch');
+
+    res.status(201).json(populated);
+  } catch (error) {
+    console.error('Manual allocation error:', error);
+    res.status(500).json({ message: error.message || 'Server error' });
+  }
+});
+
+// @route   POST /api/allocation/auto
+// @desc    Auto-allocate all pending students by verified MHT-CET official rules
+router.post('/auto', auth, adminOnly, async (req, res) => {
+  try {
+    const { branchId } = req.body;
+
+    // ── STEP 1: Sort students by merit ───────────────────────────────────────
+    // Official rule: highest MHT-CET percentile first.
+    // Tiebreaker 1: MHT-CET raw score descending
+    // Tiebreaker 2: SSC aggregate percentage descending
+    const pendingStudents = await User.find({
+      role: 'student',
+      allocationStatus: 'pending'
+    }).sort({ mhtCetPercentile: -1, mhtCetScore: -1, sscAggregate: -1 });
+
+    if (pendingStudents.length === 0) {
+      return res.json({ message: 'No pending students to allocate', allocations: [] });
+    }
+
+    const branchFilter = { isActive: true };
+    if (branchId) branchFilter._id = branchId;
+    const branches = await Branch.find(branchFilter);
+
+    const allocations = [];
+    const io = req.app.get('io');
+
+    // ── STEP 2: Process each student in merit order ──────────────────────────
+    for (const student of pendingStudents) {
+
+      // Use branch preferences if set, else try all branches
+      const eligibleBranches = (student.branchPreferences && student.branchPreferences.length > 0)
+        ? branches.filter(b => student.branchPreferences.some(p => p.toString() === b._id.toString()))
+        : branches;
+
+      let allocated = false;
+
+      for (const branch of eligibleBranches) {
+        if (allocated) break;
+
+        const isFemale = student.gender === 'Female';
+
+        // ── OMS Rule: Non-CAP / Outside Maharashtra State students ───────────
+        // Official: OMS candidates treated as OPEN only — no state reservations
+        const effectiveCat = (student.studentType === 'Non-CAP') ? 'OPEN' : student.category;
+
+        // ── Build seat attempt list in verified MHT-CET priority order ───────
+        //
+        // KEY OFFICIAL RULES:
+        //  1. Ladies quota (30%) does NOT apply to PWD, DEF, or Orphan seats
+        //  2. Ladies quota DOES apply to State Level (regular category) seats
+        //  3. Reserved category tries own seats first, then falls back to OPEN
+        //  4. PWD/DEF checked before regular category seats
+        //  5. Orphan and Minority are highest priority special pools
+        //
+        const seatAttempts = [];
+
+        // Priority 1: Orphan seats (NO ladies quota per official rules)
+        if (student.isOrphan) {
+          seatAttempts.push({ pool: 'orphanSeats', cat: null, type: null, label: 'Orphan' });
+        }
+
+        // Priority 2: Minority seats (NO ladies quota)
+        if (student.isMinority) {
+          seatAttempts.push({ pool: 'minoritySeats', cat: null, type: null, label: 'Minority' });
+        }
+
+        // Priority 3: PWD seats — own category → OPEN → Common Reserved
+        // IMPORTANT: NO ladies quota for PWD seats (official rule)
+        if (student.isPWD) {
+          if (effectiveCat !== 'OPEN') {
+            seatAttempts.push({ pool: 'pwd', cat: effectiveCat, type: 'general', label: `PWD-${effectiveCat}` });
+          }
+          seatAttempts.push({ pool: 'pwd', cat: 'OPEN', type: 'general', label: 'PWD-OPEN' });
+          seatAttempts.push({ pool: 'pwdCommonReserved', cat: null, type: null, label: 'PWD-Common' });
+        }
+
+        // Priority 4: DEF seats — own category → OPEN → Common Reserved
+        // IMPORTANT: NO ladies quota for DEF seats (official rule)
+        if (student.isDEF) {
+          if (effectiveCat !== 'OPEN') {
+            seatAttempts.push({ pool: 'def', cat: effectiveCat, type: 'general', label: `DEF-${effectiveCat}` });
+          }
+          seatAttempts.push({ pool: 'def', cat: 'OPEN', type: 'general', label: 'DEF-OPEN' });
+          seatAttempts.push({ pool: 'defCommonReserved', cat: null, type: null, label: 'DEF-Common' });
+        }
+
+        // Priority 5: EWS seats (supernumerary pool)
+        if (effectiveCat === 'EWS') {
+          seatAttempts.push({ pool: 'ewsSeats', cat: null, type: null, label: 'EWS' });
+        }
+
+        // Priority 6: Own reserved category (State Level)
+        // Ladies seat first for female candidates, then General — official 30% ladies rule
+        if (effectiveCat !== 'OPEN' && effectiveCat !== 'EWS') {
+          if (isFemale) {
+            seatAttempts.push({ pool: 'stateLevel', cat: effectiveCat, type: 'ladies', label: `${effectiveCat}-L` });
+          }
+          seatAttempts.push({ pool: 'stateLevel', cat: effectiveCat, type: 'general', label: `${effectiveCat}-G` });
+        }
+
+        // Priority 7: OPEN category (State Level) — fallback for all
+        // Ladies seat first for female candidates, then General
+        if (isFemale) {
+          seatAttempts.push({ pool: 'stateLevel', cat: 'OPEN', type: 'ladies', label: 'OPEN-L' });
+        }
+        seatAttempts.push({ pool: 'stateLevel', cat: 'OPEN', type: 'general', label: 'OPEN-G' });
+
+        // ── Try each seat attempt in priority order ──────────────────────────
+        for (const attempt of seatAttempts) {
+          try {
+            // Always re-fetch to get latest counts (another student may have taken it)
+            const freshBranch = await Branch.findById(branch._id);
+            if (!freshBranch) continue;
+
+            // Check availability
+            let hasSeats = false;
+            if (attempt.pool === 'stateLevel' || attempt.pool === 'pwd' || attempt.pool === 'def') {
+              hasSeats = !!(
+                freshBranch[attempt.pool] &&
+                freshBranch[attempt.pool][attempt.cat] &&
+                freshBranch[attempt.pool][attempt.cat][attempt.type] > 0
+              );
+            } else {
+              hasSeats = (freshBranch[attempt.pool] || 0) > 0;
+            }
+
+            if (!hasSeats) continue;
+
+            // Decrement seat
+            const updatedBranch = await decrementSeat(branch._id, attempt.pool, attempt.cat, attempt.type);
+
+            // Save allocation record
+            const allocation = new Allocation({
+              student: student._id,
+              branch: branch._id,
+              seatCategory: attempt.cat || effectiveCat,
+              seatType: attempt.type || 'general',
+              seatPool: attempt.pool,
+              allocatedBy: 'auto',
+              allocatedByAdmin: req.user._id,
+              status: 'allocated'
+            });
+            await allocation.save();
+
+            // Update student record
+            student.allocationStatus = 'allocated';
+            student.allocatedBranch = branch._id;
+            student.allocatedSeatCategory = attempt.cat || effectiveCat;
+            student.allocatedSeatType = attempt.type || 'general';
+            await student.save();
+
+            allocations.push(allocation);
+
+            // Broadcast real-time updates
+            io.emit('seat-update', {
+              branchId: updatedBranch._id,
+              branch: updatedBranch.toJSON(),
+              updatedAt: new Date()
+            });
+            io.emit('allocation-update', {
+              studentId: student._id,
+              updatedAt: new Date()
+            });
+
+            console.log(`✅ Auto-allocated: ${student.applicationId} → ${branch.name} [${attempt.label}]`);
+            allocated = true;
+            break;
+
+          } catch (err) {
+            continue; // seat unavailable or taken, try next
+          }
+        }
+
+        if (allocated) break;
+      }
+
+      if (!allocated) {
+        console.log(`⚠️  No seat: ${student.applicationId} (${student.category}, ${student.mhtCetPercentile}%ile)`);
+      }
+    }
+
+    // Broadcast batch complete
+    io.emit('allocation-batch-complete', {
+      count: allocations.length,
+      updatedAt: new Date()
+    });
+
+    const populatedAllocations = await Allocation.find({
+      _id: { $in: allocations.map(a => a._id) }
+    }).populate('student', '-password').populate('branch');
+
+    res.json({
+      message: `Successfully allocated ${allocations.length} out of ${pendingStudents.length} students`,
+      allocated: allocations.length,
+      unallocated: pendingStudents.length - allocations.length,
+      allocations: populatedAllocations
+    });
+
+  } catch (error) {
+    console.error('Auto allocation error:', error);
+    res.status(500).json({ message: 'Server error during auto allocation' });
+  }
+});
+
+// @route   GET /api/allocation/history
+// @desc    Get all allocations (admin)
+router.get('/history', auth, adminOnly, async (req, res) => {
+  try {
+    const allocations = await Allocation.find()
+      .populate('student', '-password')
+      .populate('branch')
+      .sort({ createdAt: -1 });
+    res.json(allocations);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   DELETE /api/allocation/:id
+// @desc    Cancel an allocation — returns seat to pool
+router.delete('/:id', auth, adminOnly, async (req, res) => {
+  try {
+    const allocation = await Allocation.findById(req.params.id);
+    if (!allocation) return res.status(404).json({ message: 'Allocation not found' });
+
+    // Return seat to pool
+    const branch = await incrementSeat(
+      allocation.branch,
+      allocation.seatPool,
+      allocation.seatCategory,
+      allocation.seatType
+    );
+
+    // Reset student status back to pending
+    await User.findByIdAndUpdate(allocation.student, {
+      allocationStatus: 'pending',
+      allocatedBranch: null,
+      allocatedSeatCategory: null,
+      allocatedSeatType: null
+    });
+
+    allocation.status = 'cancelled';
+    await allocation.save();
+
+    const io = req.app.get('io');
+    io.emit('seat-update', { branchId: branch._id, branch: branch.toJSON(), updatedAt: new Date() });
+
+    res.json({ message: 'Allocation cancelled, seat returned to pool' });
+  } catch (error) {
+    console.error('Cancel allocation error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/allocation/student/:studentId
+// @desc    Get allocation for a specific student
+router.get('/student/:studentId', auth, async (req, res) => {
+  try {
+    if (req.user._id.toString() !== req.params.studentId && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const allocation = await Allocation.findOne({
+      student: req.params.studentId,
+      status: { $ne: 'cancelled' }
+    }).populate('branch');
+    res.json(allocation);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+module.exports = router;
