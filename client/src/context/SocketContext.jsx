@@ -13,7 +13,8 @@ export function SocketProvider({ children }) {
   const [clientsCount, setClientsCount] = useState(0);
 
   useEffect(() => {
-    const socketInstance = io(window.location.hostname === 'localhost' ? 'http://localhost:5000' : undefined, {
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+    const socketInstance = io(socketUrl, {
       transports: ['websocket', 'polling']
     });
 
