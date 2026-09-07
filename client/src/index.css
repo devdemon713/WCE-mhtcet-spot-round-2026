@@ -230,6 +230,57 @@ a:hover {
   width: 100%;
 }
 
+/* ===== YouTube Guidance Video ===== */
+.video-section {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
+  gap: 28px;
+  align-items: center;
+  padding: 24px;
+  margin-bottom: 24px;
+  border-top: 3px solid var(--wce-gold);
+}
+
+.video-section-copy {
+  padding: 8px 0;
+}
+
+.video-eyebrow {
+  color: var(--wce-maroon);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.video-section h2 {
+  margin: 8px 0;
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.video-section p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.youtube-player {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #1a1a1a;
+  border-radius: var(--radius-sm);
+}
+
+.youtube-player iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
 /* ===== Cards ===== */
 .card {
   background: var(--bg-card);
@@ -1071,6 +1122,16 @@ a:hover {
 
 /* ── Mobile: 768px ── */
 @media (max-width: 768px) {
+  .video-section {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 18px;
+  }
+
+  .video-section h2 {
+    font-size: 20px;
+  }
+
   /* Navbar */
   .navbar-top {
     padding: 8px 14px;

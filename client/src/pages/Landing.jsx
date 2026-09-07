@@ -4,6 +4,8 @@ import axios from 'axios';
 import { useSocket } from '../context/SocketContext';
 import SeatMatrix from '../components/SeatMatrix';
 
+const youtubeVideoId = import.meta.env.VITE_YOUTUBE_VIDEO_ID || 'jfKfPfyJRdk';
+
 function Landing() {
   const [branches, setBranches] = useState([]);
   const [round, setRound] = useState(null);
@@ -107,6 +109,23 @@ function Landing() {
       )}
 
       <main className="main-content">
+        {/* Admission guidance video */}
+        <section className="video-section card" aria-labelledby="video-title">
+          <div className="video-section-copy">
+            <span className="video-eyebrow">Candidate guidance</span>
+            <h2 id="video-title">Understand the spot round process</h2>
+            <p>Watch the latest admission guidance before completing your registration.</p>
+          </div>
+          <div className="youtube-player">
+            <iframe
+              src={`https://www.youtube.com/embed/${youtubeVideoId}?rel=0`}
+              title="Spot round admission guidance"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          </div>
+        </section>
+
         {/* Instructions */}
         <div className="instructions-card">
           <h3>Read Before You Begin — Candidate Instructions</h3>
