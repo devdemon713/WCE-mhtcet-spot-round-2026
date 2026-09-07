@@ -134,7 +134,7 @@ function StudentDashboard() {
       {/* Allocation Result */}
       {allocation && allocation.status !== 'cancelled' && (
         <div className="allocation-result" style={{ marginBottom: '24px' }}>
-          <h3>🎉 Congratulations! You have been allocated a seat!</h3>
+          <h3>🎉 Your seat is secured!</h3>
           <div style={{ textAlign: 'left', maxWidth: '500px', margin: '0 auto' }}>
             <div className="detail">
               <span className="label">Branch</span>

@@ -21,6 +21,28 @@ router.get('/current', async (req, res) => {
   }
 });
 
+// @route   PUT /api/round/announcement
+// @desc    Update the public announcement banner (ADMIN)
+router.put('/announcement', auth, adminOnly, async (req, res) => {
+  try {
+    const round = await Round.findOne().sort({ createdAt: -1 });
+    if (!round) return res.status(404).json({ message: 'No round found' });
+
+    const { announcementText, announcementEnabled, announcementDirection } = req.body;
+    if (typeof announcementText === 'string') round.announcementText = announcementText.trim().slice(0, 240);
+    if (typeof announcementEnabled === 'boolean') round.announcementEnabled = announcementEnabled;
+    if (announcementDirection === 'ltr' || announcementDirection === 'rtl') round.announcementDirection = announcementDirection;
+    await round.save();
+
+    const io = req.app.get('io');
+    io.emit('announcement-update', { round: round.toJSON(), updatedAt: new Date() });
+    res.json({ message: 'Announcement updated', round });
+  } catch (error) {
+    console.error('Announcement update error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   POST /api/round/initialize
 // @desc    Initialize a new actual round (ADMIN) - resets all data
 router.post('/initialize', auth, adminOnly, async (req, res) => {
@@ -55,6 +77,8 @@ router.post('/initialize', auth, adminOnly, async (req, res) => {
       }
     });
 
+    const resetBranches = await Branch.find({ isActive: true });
+
     // Cancel all existing allocations
     await Allocation.updateMany({ status: { $ne: 'cancelled' } }, { status: 'cancelled' });
     await User.updateMany({ role: 'student' }, {
@@ -65,6 +89,7 @@ router.post('/initialize', auth, adminOnly, async (req, res) => {
     });
 
     const io = req.app.get('io');
+    io.emit('seats-reset', { branches: resetBranches.map(branch => branch.toJSON()), updatedAt: new Date() });
     io.emit('round-update', { round: round.toJSON(), updatedAt: new Date() });
 
     res.json({ message: 'New round initialized. All seats reset to 0. Enter actual vacancy data.', round });

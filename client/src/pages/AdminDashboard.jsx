@@ -22,6 +22,9 @@ function AdminDashboard() {
   const [allocations, setAllocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [announcementText, setAnnouncementText] = useState('');
+  const [announcementEnabled, setAnnouncementEnabled] = useState(true);
+  const [announcementDirection, setAnnouncementDirection] = useState('ltr');
 
   // Allocation state
   const [allocMode, setAllocMode] = useState('manual');
@@ -30,6 +33,10 @@ function AdminDashboard() {
   const [selectedCategory, setSelectedCategory] = useState('OPEN');
   const [selectedType, setSelectedType] = useState('general');
   const [allocating, setAllocating] = useState(false);
+
+  // Manual student picker filters
+  const [manualStudentSearch, setManualStudentSearch] = useState('');
+  const [manualCatFilter, setManualCatFilter] = useState('all');
 
   // Branch Upgrade state
   const [upgradeStudent, setUpgradeStudent] = useState('');
@@ -55,12 +62,21 @@ function AdminDashboard() {
     socket.on('seat-update', (data) => {
       setBranches(prev => prev.map(b => b._id === data.branchId ? data.branch : b));
     });
+    socket.on('seats-reset', (data) => {
+      setBranches(data.branches);
+    });
     socket.on('round-update', (data) => {
       setRound(data.round);
     });
+    socket.on('announcement-update', (data) => {
+      setRound(data.round);
+      syncAnnouncementFields(data.round);
+    });
     return () => {
       socket.off('seat-update');
+      socket.off('seats-reset');
       socket.off('round-update');
+      socket.off('announcement-update');
     };
   }, [socket]);
 
@@ -77,11 +93,32 @@ function AdminDashboard() {
       setStudents(studentRes.data);
       setStats(statsRes.data);
       setRound(roundRes.data);
+      syncAnnouncementFields(roundRes.data);
       setAllocations(alloRes.data);
     } catch (err) {
       console.error('Fetch error:', err);
     }
     setLoading(false);
+  };
+
+  const syncAnnouncementFields = (currentRound) => {
+    setAnnouncementText(currentRound?.announcementText || 'THIS FORM IS ONLY FOR STUDENTS APPLYING FOR 1ST YEAR ACAP / SPOT ROUND REGISTRATION');
+    setAnnouncementEnabled(currentRound?.announcementEnabled !== false);
+    setAnnouncementDirection(currentRound?.announcementDirection || 'ltr');
+  };
+
+  const handleAnnouncementSave = async () => {
+    try {
+      const res = await axios.put('/api/round/announcement', {
+        announcementText,
+        announcementEnabled,
+        announcementDirection
+      });
+      setRound(res.data.round);
+      showMsg('Announcement settings updated for all users.');
+    } catch (err) {
+      showMsg('Announcement update failed: ' + (err.response?.data?.message || err.message));
+    }
   };
 
   const showMsg = (msg) => {
@@ -114,7 +151,7 @@ function AdminDashboard() {
         seatType: selectedType,
         seatPool: 'stateLevel'
       });
-      showMsg('Student allocated successfully!');
+      showMsg("Student's seat has been secured successfully!");
       fetchAll();
       setSelectedStudent('');
       setSelectedBranch('');
@@ -223,6 +260,22 @@ function AdminDashboard() {
   });
 
   const pendingStudents = students.filter(s => s.allocationStatus === 'pending');
+
+  // Pending students filtered by search + category, sorted high→low percentile (MHT-CET merit rule)
+  const filteredPendingStudents = pendingStudents
+    .filter(s => {
+      if (manualCatFilter !== 'all' && s.category !== manualCatFilter) return false;
+      if (manualStudentSearch) {
+        const term = manualStudentSearch.toLowerCase();
+        return (
+          s.fullName.toLowerCase().includes(term) ||
+          s.applicationId.toLowerCase().includes(term)
+        );
+      }
+      return true;
+    })
+    .sort((a, b) => (b.mhtCetPercentile || 0) - (a.mhtCetPercentile || 0));
+
   const totalVacant = branches.reduce((sum, b) => sum + (b.totalVacant || 0), 0);
 
   if (loading) {
@@ -470,16 +523,88 @@ function AdminDashboard() {
               </div>
               <div className="card-body">
                 <div className="form-grid">
+                  {/* ── Student Picker ── */}
                   <div className="form-group full-width">
                     <label>Select Student <span className="required">*</span></label>
-                    <select value={selectedStudent} onChange={(e) => setSelectedStudent(e.target.value)}>
-                      <option value="">-- Select a pending student --</option>
-                      {pendingStudents.map(s => (
-                        <option key={s._id} value={s._id}>
-                          {s.applicationId} — {s.fullName} (Percentile: {s.mhtCetPercentile}, {CAT_LABELS[s.category]}, {s.gender})
-                        </option>
-                      ))}
-                    </select>
+
+                    {/* Filters */}
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                      <input
+                        type="text"
+                        placeholder="🔍 Search name or application ID…"
+                        value={manualStudentSearch}
+                        onChange={e => { setManualStudentSearch(e.target.value); setSelectedStudent(''); }}
+                        style={{ flex: 2, minWidth: '160px', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontFamily: 'inherit' }}
+                      />
+                      <select
+                        value={manualCatFilter}
+                        onChange={e => { setManualCatFilter(e.target.value); setSelectedStudent(''); }}
+                        style={{ flex: 1, minWidth: '130px', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontFamily: 'inherit' }}
+                      >
+                        <option value="all">All Categories</option>
+                        {Object.entries(CAT_LABELS).filter(([k]) => k !== 'EWS').map(([k, v]) => (
+                          <option key={k} value={k}>{v}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Student list */}
+                    <div style={{ border: '1px solid #8B1A1A', borderRadius: '8px', maxHeight: '280px', overflowY: 'auto', background: '#fff', boxShadow: '0 2px 8px rgba(139,26,26,0.08)' }}>
+                      {filteredPendingStudents.length === 0 ? (
+                        <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                          No pending students match the filter
+                        </div>
+                      ) : (
+                        filteredPendingStudents.map((s, idx) => {
+                          const isSel = selectedStudent === s._id;
+                          return (
+                            <div
+                              key={s._id}
+                              onClick={() => setSelectedStudent(isSel ? '' : s._id)}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: '12px',
+                                padding: '12px 16px', cursor: 'pointer',
+                                borderBottom: '1px solid rgba(139,26,26,0.12)',
+                                background: isSel ? 'linear-gradient(135deg,#8B1A1A,#B22222)' : idx % 2 === 0 ? '#fff' : '#FFF8F8',
+                                color: isSel ? '#fff' : 'var(--text-primary)',
+                                transition: 'all 0.18s ease'
+                              }}
+                            >
+                              {/* Rank circle */}
+                              <span style={{
+                                minWidth: '32px', height: '32px', borderRadius: '50%',
+                                background: isSel ? 'rgba(255,255,255,0.2)' : '#8B1A1A',
+                                color: '#fff', fontSize: '11px', fontWeight: 800,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                              }}>{idx + 1}</span>
+
+                              {/* Name + AppID + badges */}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: 700, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.fullName}</div>
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginTop: '4px' }}>
+                                  <span style={{ fontSize: '11px', opacity: isSel ? 0.8 : 0.5 }}>{s.applicationId}</span>
+                                  <span style={{ opacity: 0.3 }}>·</span>
+                                  <span style={{ fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#FFF0F0', color: isSel ? '#fff' : '#8B1A1A', border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #F5BBBB' }}>📊 {s.mhtCetPercentile}%ile</span>
+                                  <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#FFFBEB', color: isSel ? '#fff' : '#B45309', border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #FCD34D' }}>{CAT_LABELS[s.category]}</span>
+                                  <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#F0F9FF', color: isSel ? '#fff' : '#0369A1', border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #BAE6FD' }}>{s.gender === 'Female' ? '♀' : '♂'} {s.gender}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Selected bar */}
+                    {selectedStudent && (() => {
+                      const s = students.find(x => x._id === selectedStudent);
+                      if (!s) return null;
+                      return (
+                        <div style={{ marginTop: '8px', padding: '10px 16px', background: 'linear-gradient(135deg,#8B1A1A,#B22222)', borderRadius: '6px', fontSize: '13px', color: '#fff', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          ✅ Selected: <strong>{s.fullName}</strong> · {s.mhtCetPercentile}%ile · {CAT_LABELS[s.category]} · {s.gender}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div className="form-group full-width">
@@ -727,6 +852,35 @@ function AdminDashboard() {
                     ⏹️ End Round
                   </button>
                 )}
+              </div>
+            </div>
+          </div>
+
+          <div className="card" style={{ marginBottom: '20px' }}>
+            <div className="card-header">
+              <h2>Public Announcement Banner</h2>
+              <span className="badge badge-active">LIVE CONTROL</span>
+            </div>
+            <div className="card-body">
+              <label className="form-label" htmlFor="announcement-text">Announcement text</label>
+              <input
+                id="announcement-text"
+                className="form-input"
+                value={announcementText}
+                maxLength={240}
+                onChange={(event) => setAnnouncementText(event.target.value)}
+              />
+              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginTop: '14px', alignItems: 'center' }}>
+                <label className="checkbox-label">
+                  <input type="checkbox" checked={announcementEnabled} onChange={(event) => setAnnouncementEnabled(event.target.checked)} />
+                  Show announcement
+                </label>
+                <label className="form-label" htmlFor="announcement-direction" style={{ margin: 0 }}>Movement</label>
+                <select id="announcement-direction" className="form-input" style={{ width: '180px' }} value={announcementDirection} onChange={(event) => setAnnouncementDirection(event.target.value)}>
+                  <option value="ltr">Left to right</option>
+                  <option value="rtl">Right to left</option>
+                </select>
+                <button className="btn btn-primary" onClick={handleAnnouncementSave}>Save Announcement</button>
               </div>
             </div>
           </div>

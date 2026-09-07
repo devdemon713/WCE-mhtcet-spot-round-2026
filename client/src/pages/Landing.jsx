@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useSocket } from '../context/SocketContext';
 import SeatMatrix from '../components/SeatMatrix';
+import BranchSummaryChart from '../components/BranchSummaryChart';
 
-const youtubeVideoId = import.meta.env.VITE_YOUTUBE_VIDEO_ID || 'jfKfPfyJRdk';
+const youtubeVideoId = import.meta.env.VITE_YOUTUBE_VIDEO_ID || '1osWfayuAyg';
 
 function Landing() {
   const [branches, setBranches] = useState([]);
@@ -38,10 +39,15 @@ function Landing() {
       setRound(data.round);
     });
 
+    socket.on('announcement-update', (data) => {
+      setRound(data.round);
+    });
+
     return () => {
       socket.off('seat-update');
       socket.off('seats-reset');
       socket.off('round-update');
+      socket.off('announcement-update');
     };
   }, [socket]);
 
@@ -100,31 +106,18 @@ function Landing() {
 
       {/* Round Status Banner */}
       {round && (
-        <div className={`banner ${round.isDemo ? 'demo-banner' : ''}`}>
-          {round.isDemo
-            ? '⚠ DEMO MODE — This data is for testing. Actual round data will be updated by admin.'
-            : `THIS FORM IS ONLY FOR STUDENTS APPLYING FOR 1ST YEAR ACAP / SPOT ROUND REGISTRATION — ${round.name}`
-          }
+        <div className={`banner ${round.isDemo ? 'demo-banner' : ''} ${round.announcementEnabled === false ? 'banner-disabled' : ''}`}>
+          {round.announcementEnabled !== false && (
+            <div className={`announcement-track announcement-${round.announcementDirection || 'ltr'}`}>
+              <span>{round.announcementText || `THIS FORM IS ONLY FOR STUDENTS APPLYING FOR 1ST YEAR ACAP / SPOT ROUND REGISTRATION - ${round.name}`} </span>
+            </div>
+          )}
         </div>
       )}
 
       <main className="main-content">
-        {/* Admission guidance video */}
-        <section className="video-section card" aria-labelledby="video-title">
-          <div className="video-section-copy">
-            <span className="video-eyebrow">Candidate guidance</span>
-            <h2 id="video-title">Understand the spot round process</h2>
-            <p>Watch the latest admission guidance before completing your registration.</p>
-          </div>
-          <div className="youtube-player">
-            <iframe
-              src={`https://www.youtube.com/embed/${youtubeVideoId}?rel=0`}
-              title="Spot round admission guidance"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-            />
-          </div>
-        </section>
+          {/* Live Branch Vacancy Summary Chart */}
+          <BranchSummaryChart branches={filteredBranches} flashId={flashId} />
 
         {/* Instructions */}
         <div className="instructions-card">
@@ -194,6 +187,8 @@ function Landing() {
           <div className="alert alert-info">No branches found for the selected filter.</div>
         )}
 
+
+
         {/* Legend */}
         <div className="card" style={{ marginTop: '20px' }}>
           <div className="card-body" style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.8' }}>
@@ -204,6 +199,24 @@ function Landing() {
             <br /><br />
             <em>STATE CET CELL, Mumbai</em>
           </div>
+        </div>
+        <div>
+           {/* Admission guidance video */}
+        <section className="video-section card" aria-labelledby="video-title">
+          <div className="video-section-copy">
+            <span className="video-eyebrow">Candidate guidance</span>
+            <h2 id="video-title">Understand the spot round process</h2>
+            <p>Watch the latest admission guidance before completing your registration.</p>
+          </div>
+          <div className="youtube-player">
+            <iframe
+              src={`https://www.youtube.com/embed/${youtubeVideoId}?rel=0`}
+              title="Spot round admission guidance"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          </div>
+        </section>
         </div>
       </main>
     </>

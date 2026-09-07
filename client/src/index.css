@@ -215,10 +215,36 @@ a:hover {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
+  overflow: hidden;
+  min-height: 18px;
 }
 
 .banner.demo-banner {
   background: linear-gradient(135deg, #D97706, #B45309);
+}
+
+.banner-disabled {
+  display: none;
+}
+
+.announcement-track {
+  width: max-content;
+  white-space: nowrap;
+  animation: announcement-ltr 18s linear infinite;
+}
+
+.announcement-track.announcement-rtl {
+  animation-name: announcement-rtl;
+}
+
+@keyframes announcement-ltr {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100vw); }
+}
+
+@keyframes announcement-rtl {
+  from { transform: translateX(100vw); }
+  to { transform: translateX(-100%); }
 }
 
 /* ===== Main Content ===== */
@@ -1123,9 +1149,9 @@ a:hover {
 /* ── Mobile: 768px ── */
 @media (max-width: 768px) {
   .video-section {
+    padding: 18px;
     grid-template-columns: 1fr;
     gap: 16px;
-    padding: 18px;
   }
 
   .video-section h2 {

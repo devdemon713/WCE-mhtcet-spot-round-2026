@@ -19,6 +19,19 @@ const roundSchema = new mongoose.Schema({
     type: String,
     default: 'Demo round with sample data'
   },
+  announcementText: {
+    type: String,
+    default: 'THIS FORM IS ONLY FOR STUDENTS APPLYING FOR 1ST YEAR ACAP / SPOT ROUND REGISTRATION'
+  },
+  announcementEnabled: {
+    type: Boolean,
+    default: true
+  },
+  announcementDirection: {
+    type: String,
+    enum: ['ltr', 'rtl'],
+    default: 'ltr'
+  },
   startedAt: {
     type: Date,
     default: null
