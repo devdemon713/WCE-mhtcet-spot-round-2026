@@ -48,6 +48,28 @@ router.put('/announcement', auth, adminOnly, async (req, res) => {
   }
 });
 
+// @route   POST /api/round/alert
+// @desc    Broadcast an instant live alert popup to ALL connected users (ADMIN)
+router.post('/alert', auth, adminOnly, async (req, res) => {
+  try {
+    const { message, type } = req.body;
+    if (!message || !message.trim()) return res.status(400).json({ message: 'Alert message required' });
+    const alertTypes = ['info', 'success', 'warning', 'urgent'];
+    const alertType = alertTypes.includes(type) ? type : 'info';
+    const io = req.app.get('io');
+    io.emit('admin-alert', {
+      message: message.trim().slice(0, 300),
+      type: alertType,
+      sentAt: new Date(),
+      sentBy: req.user.fullName || 'Admin'
+    });
+    res.json({ message: 'Alert broadcast sent', count: io.engine.clientsCount });
+  } catch (error) {
+    console.error('Alert error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   POST /api/round/initialize
 // @desc    Initialize a new actual round (ADMIN) - resets all data
 router.post('/initialize', auth, adminOnly, async (req, res) => {

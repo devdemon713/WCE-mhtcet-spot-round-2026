@@ -25,6 +25,9 @@ function AdminDashboard() {
   const [announcementText, setAnnouncementText] = useState('');
   const [announcementEnabled, setAnnouncementEnabled] = useState(true);
   const [announcementDirection, setAnnouncementDirection] = useState('ltr');
+  const [alertMsg, setAlertMsg] = useState('');
+  const [alertType, setAlertType] = useState('info');
+  const [alertSending, setAlertSending] = useState(false);
 
   // Allocation state
   const [allocMode, setAllocMode] = useState('manual');
@@ -910,6 +913,100 @@ function AdminDashboard() {
                   style={{ fontSize: '12px' }}
                 >
                   🔄 Reset Ticker
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Live Alert Broadcaster ── */}
+          <div className="card" style={{ marginBottom: '20px', border: '2px solid #8B1A1A' }}>
+            <div className="card-header" style={{ background: 'linear-gradient(135deg,#8B1A1A,#B22222)', color: '#fff' }}>
+              <h2 style={{ color: '#fff' }}>📣 Live Alert Broadcaster</h2>
+              <span style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', fontSize: '11px', padding: '3px 10px', borderRadius: '12px', fontWeight: 700 }}>INSTANT PUSH</span>
+            </div>
+            <div className="card-body">
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '14px' }}>
+                Send an instant popup notification to <strong>every student</strong> currently viewing the portal. The alert appears on their screen for 7 seconds.
+              </p>
+
+              {/* Alert type selector */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                {[
+                  { val: 'info',    label: 'ℹ️ Info',    bg: '#1D4ED8' },
+                  { val: 'success', label: '✅ Update',   bg: '#15803D' },
+                  { val: 'warning', label: '⚠️ Warning',  bg: '#B45309' },
+                  { val: 'urgent',  label: '🚨 Urgent',   bg: '#8B1A1A' }
+                ].map(t => (
+                  <button
+                    key={t.val}
+                    onClick={() => setAlertType(t.val)}
+                    style={{
+                      padding: '6px 14px', borderRadius: '20px', border: 'none', cursor: 'pointer',
+                      fontSize: '12px', fontWeight: 700,
+                      background: alertType === t.val ? t.bg : '#f0f0f0',
+                      color: alertType === t.val ? '#fff' : '#555',
+                      transition: 'all 0.15s'
+                    }}
+                  >{t.label}</button>
+                ))}
+              </div>
+
+              {/* Quick preset messages */}
+              <div style={{ marginBottom: '10px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>QUICK PRESETS</div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {[
+                    'Registration is now OPEN. Please proceed to the counter.',
+                    'Allocation is in progress. Please wait at your seat.',
+                    'Please bring your original documents to the counter.',
+                    'The round will begin shortly. All students please be ready.',
+                    '⚠️ Last call — report to the counter immediately or forfeit your seat.'
+                  ].map(preset => (
+                    <button
+                      key={preset}
+                      onClick={() => setAlertMsg(preset)}
+                      style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '20px', border: '1px solid var(--border)', background: '#fafafa', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                    >{preset.length > 40 ? preset.slice(0, 40) + '…' : preset}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Message input + send */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+                <div style={{ flex: 1 }}>
+                  <textarea
+                    className="form-input"
+                    rows={2}
+                    placeholder="Type your live alert message here…"
+                    value={alertMsg}
+                    maxLength={300}
+                    onChange={e => setAlertMsg(e.target.value)}
+                    style={{ width: '100%', resize: 'none', fontFamily: 'inherit', fontSize: '13px' }}
+                  />
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{alertMsg.length}/300</div>
+                </div>
+                <button
+                  disabled={!alertMsg.trim() || alertSending}
+                  onClick={async () => {
+                    if (!alertMsg.trim()) return;
+                    setAlertSending(true);
+                    try {
+                      const res = await axios.post('/api/round/alert', { message: alertMsg, type: alertType });
+                      showMsg(`✅ Alert sent to ${res.data.count || 'all'} connected users.`);
+                      setAlertMsg('');
+                    } catch (e) {
+                      showMsg('❌ Failed to send alert: ' + (e.response?.data?.message || e.message));
+                    }
+                    setAlertSending(false);
+                  }}
+                  style={{
+                    padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: alertMsg.trim() ? 'pointer' : 'not-allowed',
+                    background: alertMsg.trim() ? 'linear-gradient(135deg,#8B1A1A,#B22222)' : '#ccc',
+                    color: '#fff', fontWeight: 700, fontSize: '13px', minWidth: '90px',
+                    transition: 'all 0.15s', marginBottom: '18px'
+                  }}
+                >
+                  {alertSending ? '⏳' : '📣 Send'}
                 </button>
               </div>
             </div>

@@ -247,6 +247,16 @@ a:hover {
   to { transform: translateX(-100%); }
 }
 
+@keyframes slideInAlert {
+  from { opacity: 0; transform: translateX(60px) scale(0.92); }
+  to   { opacity: 1; transform: translateX(0)   scale(1); }
+}
+
+@keyframes alertProgress {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
 /* ===== Main Content ===== */
 .main-content {
   flex: 1;

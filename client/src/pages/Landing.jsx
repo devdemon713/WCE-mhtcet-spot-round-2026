@@ -13,6 +13,7 @@ function Landing() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [flashId, setFlashId] = useState(null);
+  const [liveAlert, setLiveAlert] = useState(null); // { message, type, sentBy }
   const { socket } = useSocket();
 
   useEffect(() => {
@@ -43,11 +44,18 @@ function Landing() {
       setRound(data.round);
     });
 
+    socket.on('admin-alert', (data) => {
+      setLiveAlert(data);
+      // Auto-dismiss after 7 seconds
+      setTimeout(() => setLiveAlert(null), 7000);
+    });
+
     return () => {
       socket.off('seat-update');
       socket.off('seats-reset');
       socket.off('round-update');
       socket.off('announcement-update');
+      socket.off('admin-alert');
     };
   }, [socket]);
 
@@ -85,6 +93,50 @@ function Landing() {
 
   return (
     <>
+      {/* ── Live Admin Alert Toast ── */}
+      {liveAlert && (() => {
+        const cfg = {
+          info:    { bg: '#1D4ED8', icon: 'ℹ️', label: 'Notice' },
+          success: { bg: '#15803D', icon: '✅', label: 'Update' },
+          warning: { bg: '#B45309', icon: '⚠️', label: 'Warning' },
+          urgent:  { bg: '#8B1A1A', icon: '🚨', label: 'URGENT' }
+        }[liveAlert.type] || { bg: '#1D4ED8', icon: 'ℹ️', label: 'Notice' };
+        return (
+          <div style={{
+            position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999,
+            maxWidth: '380px', width: '90vw',
+            background: cfg.bg, color: '#fff',
+            borderRadius: '12px', boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+            padding: '16px 20px 14px',
+            animation: 'slideInAlert 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+            fontFamily: 'inherit'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+              <span style={{ fontSize: '22px', lineHeight: 1, flexShrink: 0 }}>{cfg.icon}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '1px', opacity: 0.85, marginBottom: '3px', textTransform: 'uppercase' }}>
+                  WCE Admin · {cfg.label}
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: 600, lineHeight: '1.4' }}>
+                  {liveAlert.message}
+                </div>
+                <div style={{ fontSize: '10px', opacity: 0.65, marginTop: '6px' }}>
+                  {new Date(liveAlert.sentAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+              <button
+                onClick={() => setLiveAlert(null)}
+                style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', fontSize: '14px', lineHeight: 1, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >×</button>
+            </div>
+            {/* Progress bar */}
+            <div style={{ marginTop: '10px', height: '3px', background: 'rgba(255,255,255,0.25)', borderRadius: '2px', overflow: 'hidden' }}>
+              <div style={{ height: '100%', background: 'rgba(255,255,255,0.7)', animation: 'alertProgress 7s linear forwards', borderRadius: '2px' }} />
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Sub Header */}
       <div className="sub-header">
         <div className="sub-header-content">
