@@ -858,29 +858,59 @@ function AdminDashboard() {
 
           <div className="card" style={{ marginBottom: '20px' }}>
             <div className="card-header">
-              <h2>Public Announcement Banner</h2>
+              <h2>📢 Public Announcement Ticker</h2>
               <span className="badge badge-active">LIVE CONTROL</span>
             </div>
             <div className="card-body">
-              <label className="form-label" htmlFor="announcement-text">Announcement text</label>
-              <input
+
+              {/* Info note */}
+              <div style={{ background: 'var(--primary-light)', border: '1px solid var(--primary)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: '12px', color: 'var(--primary)', marginBottom: '14px' }}>
+                🤖 <strong>Auto-updates on every allocation</strong> — when a student is allocated a seat, their name and branch are automatically prepended to this ticker in real-time. You can also edit manually below.
+              </div>
+
+              {/* Live preview */}
+              <div style={{ background: '#B22222', color: '#fff', padding: '8px 14px', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 600, marginBottom: '12px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                🔴 Preview: {announcementText || '—'}
+              </div>
+
+              <label className="form-label" htmlFor="announcement-text">Announcement text (editable)</label>
+              <textarea
                 id="announcement-text"
                 className="form-input"
+                rows={3}
                 value={announcementText}
-                maxLength={240}
+                maxLength={500}
                 onChange={(event) => setAnnouncementText(event.target.value)}
+                style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit', fontSize: '13px' }}
               />
-              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginTop: '14px', alignItems: 'center' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', marginBottom: '14px' }}>{announcementText.length}/500 characters</div>
+
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <label className="checkbox-label">
                   <input type="checkbox" checked={announcementEnabled} onChange={(event) => setAnnouncementEnabled(event.target.checked)} />
-                  Show announcement
+                  Show ticker
                 </label>
                 <label className="form-label" htmlFor="announcement-direction" style={{ margin: 0 }}>Movement</label>
-                <select id="announcement-direction" className="form-input" style={{ width: '180px' }} value={announcementDirection} onChange={(event) => setAnnouncementDirection(event.target.value)}>
-                  <option value="ltr">Left to right</option>
-                  <option value="rtl">Right to left</option>
+                <select id="announcement-direction" className="form-input" style={{ width: '160px' }} value={announcementDirection} onChange={(event) => setAnnouncementDirection(event.target.value)}>
+                  <option value="ltr">← Left to right</option>
+                  <option value="rtl">Right to left →</option>
                 </select>
-                <button className="btn btn-primary" onClick={handleAnnouncementSave}>Save Announcement</button>
+                <button className="btn btn-primary" onClick={handleAnnouncementSave}>💾 Save</button>
+                <button
+                  className="btn btn-warning"
+                  onClick={async () => {
+                    try {
+                      await axios.put('/api/round/announcement', { resetToDefault: true });
+                      showMsg('Ticker reset to default.');
+                      fetchAll();
+                    } catch (e) {
+                      showMsg('Reset failed: ' + e.message);
+                    }
+                  }}
+                  style={{ fontSize: '12px' }}
+                >
+                  🔄 Reset Ticker
+                </button>
               </div>
             </div>
           </div>

@@ -28,8 +28,13 @@ router.put('/announcement', auth, adminOnly, async (req, res) => {
     const round = await Round.findOne().sort({ createdAt: -1 });
     if (!round) return res.status(404).json({ message: 'No round found' });
 
-    const { announcementText, announcementEnabled, announcementDirection } = req.body;
-    if (typeof announcementText === 'string') round.announcementText = announcementText.trim().slice(0, 240);
+    const { announcementText, announcementEnabled, announcementDirection, resetToDefault } = req.body;
+
+    if (resetToDefault) {
+      round.announcementText = 'THIS FORM IS ONLY FOR STUDENTS APPLYING FOR 1ST YEAR ACAP / SPOT ROUND REGISTRATION';
+    } else if (typeof announcementText === 'string') {
+      round.announcementText = announcementText.trim().slice(0, 500);
+    }
     if (typeof announcementEnabled === 'boolean') round.announcementEnabled = announcementEnabled;
     if (announcementDirection === 'ltr' || announcementDirection === 'rtl') round.announcementDirection = announcementDirection;
     await round.save();

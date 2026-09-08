@@ -220,7 +220,7 @@ a:hover {
 }
 
 .banner.demo-banner {
-  background: linear-gradient(135deg, #D97706, #B45309);
+  background: var(--wce-maroon);
 }
 
 .banner-disabled {

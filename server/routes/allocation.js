@@ -3,7 +3,31 @@ const router = express.Router();
 const User = require('../models/User');
 const Branch = require('../models/Branch');
 const Allocation = require('../models/Allocation');
+const Round = require('../models/Round');
 const { auth, adminOnly } = require('../middleware/auth');
+
+// Helper: Push allocation news into the announcement ticker in real-time
+async function pushAllocationAnnouncement(io, studentName, branchName, branchType, category, seatType) {
+  try {
+    const round = await Round.findOne().sort({ createdAt: -1 });
+    if (!round) return;
+    const typeLabel = seatType === 'ladies' ? '(Ladies)' : '';
+    const newEntry = `🎉 ${studentName} secured ${branchName} (${branchType}) — ${category} ${typeLabel} seat`;
+    // Keep existing text, prepend new entry with separator
+    const existing = round.announcementText || '';
+    // Extract the base static text (everything after the last '|' separator or full text)
+    const parts = existing.split('  |  ');
+    // Keep only the latest 5 allocation entries + original base text
+    const allocParts = parts.filter(p => p.startsWith('🎉')).slice(0, 4);
+    const baseParts  = parts.filter(p => !p.startsWith('🎉'));
+    const combined = [newEntry, ...allocParts, ...baseParts].join('  |  ');
+    round.announcementText = combined.slice(0, 500);
+    await round.save();
+    io.emit('announcement-update', { round: round.toJSON(), updatedAt: new Date() });
+  } catch (e) {
+    console.error('Announcement push error:', e.message);
+  }
+}
 
 // Helper: Decrement a seat from a branch
 async function decrementSeat(branchId, seatPool, seatCategory, seatType) {
@@ -182,6 +206,8 @@ router.post('/manual', auth, adminOnly, async (req, res) => {
     const io = req.app.get('io');
     io.emit('seat-update', { branchId: branch._id, branch: branch.toJSON(), updatedAt: new Date() });
     io.emit('allocation-update', { studentId: student._id, updatedAt: new Date() });
+    // Auto-push to announcement ticker
+    await pushAllocationAnnouncement(io, student.fullName, branch.name, branch.type, seatCategory, seatType);
 
     const populated = await Allocation.findById(allocation._id)
       .populate('student', '-password')
