@@ -81,8 +81,10 @@ function Login() {
               </div>
 
               <div style={{ marginTop: '20px', padding: '12px', background: '#f8f8f8', borderRadius: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                <strong>Demo Credentials:</strong><br />
-                Admin: admin@wce.ac.in / admin123<br />
+                <strong>Demo Credentials:</strong>
+                <br />
+            {/* Admin: admin@wce.ac.in / admin123 */}
+              <br />
                 Student: rahul@demo.com / demo123
               </div>
             </div>
