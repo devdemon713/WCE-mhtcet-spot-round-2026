@@ -3,6 +3,10 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import SeatMatrix from '../components/SeatMatrix';
+import LiveNotification from '../components/animations/LiveNotification';
+import TeaBreakOverlay from '../components/animations/TeaBreakOverlay';
+import LunchBreakOverlay from '../components/animations/LunchBreakOverlay';
+import { playBreakBell, playNotificationSound, playUrgentSound } from '../components/animations/portalSounds';
 
 function StudentDashboard() {
   const { user, refreshUser } = useAuth();
@@ -12,6 +16,8 @@ function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [flashId, setFlashId] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [liveAlert, setLiveAlert] = useState(null);
+  const [breakType, setBreakType] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -40,10 +46,33 @@ function StudentDashboard() {
       fetchAllocation();
     });
 
+    socket.on('admin-alert', (data) => {
+      setLiveAlert(data);
+      // Play attention sound based on alert type
+      if (data.type === 'urgent') {
+        playUrgentSound();
+      } else {
+        playNotificationSound();
+      }
+      setTimeout(() => setLiveAlert(null), 7000);
+    });
+
+    socket.on('break-start', (data) => {
+      setBreakType(data.type);
+      playBreakBell(); // ~10 second bell chime
+    });
+
+    socket.on('break-end', () => {
+      setBreakType(null);
+    });
+
     return () => {
       socket.off('seat-update');
       socket.off('allocation-update');
       socket.off('allocation-batch-complete');
+      socket.off('admin-alert');
+      socket.off('break-start');
+      socket.off('break-end');
     };
   }, [socket, user]);
 
@@ -91,6 +120,11 @@ function StudentDashboard() {
 
   return (
     <main className="main-content">
+      {/* Premium Notification + Break Overlays */}
+      <LiveNotification alert={liveAlert} onDismiss={() => setLiveAlert(null)} />
+      <TeaBreakOverlay isActive={breakType === 'tea'} />
+      <LunchBreakOverlay isActive={breakType === 'lunch'} />
+
       <h2 style={{ marginBottom: '20px', fontSize: '20px' }}>Student Dashboard</h2>
 
       {/* Profile Card */}

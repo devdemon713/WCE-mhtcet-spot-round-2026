@@ -4,6 +4,10 @@ import axios from 'axios';
 import { useSocket } from '../context/SocketContext';
 import SeatMatrix from '../components/SeatMatrix';
 import BranchSummaryChart from '../components/BranchSummaryChart';
+import LiveNotification from '../components/animations/LiveNotification';
+import TeaBreakOverlay from '../components/animations/TeaBreakOverlay';
+import LunchBreakOverlay from '../components/animations/LunchBreakOverlay';
+import { playBreakBell, playNotificationSound, playUrgentSound } from '../components/animations/portalSounds';
 
 const youtubeVideoId = import.meta.env.VITE_YOUTUBE_VIDEO_ID || '1osWfayuAyg';
 
@@ -14,6 +18,7 @@ function Landing() {
   const [filter, setFilter] = useState('all');
   const [flashId, setFlashId] = useState(null);
   const [liveAlert, setLiveAlert] = useState(null); // { message, type, sentBy }
+  const [breakType, setBreakType] = useState(null); // 'tea' | 'lunch' | null
   const { socket } = useSocket();
 
   useEffect(() => {
@@ -46,8 +51,23 @@ function Landing() {
 
     socket.on('admin-alert', (data) => {
       setLiveAlert(data);
+      // Play attention sound based on alert type
+      if (data.type === 'urgent') {
+        playUrgentSound();
+      } else {
+        playNotificationSound();
+      }
       // Auto-dismiss after 7 seconds
       setTimeout(() => setLiveAlert(null), 7000);
+    });
+
+    socket.on('break-start', (data) => {
+      setBreakType(data.type); // 'tea' or 'lunch'
+      playBreakBell(); // ~10 second bell chime
+    });
+
+    socket.on('break-end', () => {
+      setBreakType(null);
     });
 
     return () => {
@@ -56,6 +76,8 @@ function Landing() {
       socket.off('round-update');
       socket.off('announcement-update');
       socket.off('admin-alert');
+      socket.off('break-start');
+      socket.off('break-end');
     };
   }, [socket]);
 
@@ -93,49 +115,12 @@ function Landing() {
 
   return (
     <>
-      {/* ── Live Admin Alert Toast ── */}
-      {liveAlert && (() => {
-        const cfg = {
-          info:    { bg: '#1D4ED8', icon: 'ℹ️', label: 'Notice' },
-          success: { bg: '#15803D', icon: '✅', label: 'Update' },
-          warning: { bg: '#B45309', icon: '⚠️', label: 'Warning' },
-          urgent:  { bg: '#8B1A1A', icon: '🚨', label: 'URGENT' }
-        }[liveAlert.type] || { bg: '#1D4ED8', icon: 'ℹ️', label: 'Notice' };
-        return (
-          <div style={{
-            position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999,
-            maxWidth: '380px', width: '90vw',
-            background: cfg.bg, color: '#fff',
-            borderRadius: '12px', boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
-            padding: '16px 20px 14px',
-            animation: 'slideInAlert 0.35s cubic-bezier(0.34,1.56,0.64,1)',
-            fontFamily: 'inherit'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-              <span style={{ fontSize: '22px', lineHeight: 1, flexShrink: 0 }}>{cfg.icon}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '1px', opacity: 0.85, marginBottom: '3px', textTransform: 'uppercase' }}>
-                  WCE Admin · {cfg.label}
-                </div>
-                <div style={{ fontSize: '14px', fontWeight: 600, lineHeight: '1.4' }}>
-                  {liveAlert.message}
-                </div>
-                <div style={{ fontSize: '10px', opacity: 0.65, marginTop: '6px' }}>
-                  {new Date(liveAlert.sentAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                </div>
-              </div>
-              <button
-                onClick={() => setLiveAlert(null)}
-                style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', fontSize: '14px', lineHeight: 1, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >×</button>
-            </div>
-            {/* Progress bar */}
-            <div style={{ marginTop: '10px', height: '3px', background: 'rgba(255,255,255,0.25)', borderRadius: '2px', overflow: 'hidden' }}>
-              <div style={{ height: '100%', background: 'rgba(255,255,255,0.7)', animation: 'alertProgress 7s linear forwards', borderRadius: '2px' }} />
-            </div>
-          </div>
-        );
-      })()}
+      {/* ── Premium Live Notification ── */}
+      <LiveNotification alert={liveAlert} onDismiss={() => setLiveAlert(null)} />
+
+      {/* ── Break Overlays ── */}
+      <TeaBreakOverlay isActive={breakType === 'tea'} />
+      <LunchBreakOverlay isActive={breakType === 'lunch'} />
 
       {/* Sub Header */}
       <div className="sub-header">
@@ -158,10 +143,17 @@ function Landing() {
 
       {/* Round Status Banner */}
       {round && (
-        <div className={`banner ${round.isDemo ? 'demo-banner' : ''} ${round.announcementEnabled === false ? 'banner-disabled' : ''}`}>
+        <div className={`banner ${round.isDemo ? 'demo-banner' : ''} ${round.announcementEnabled === false ? 'banner-disabled' : ''} ${breakType ? `break-banner-${breakType}` : ''}`}>
           {round.announcementEnabled !== false && (
             <div className={`announcement-track announcement-${round.announcementDirection || 'ltr'}`}>
-              <span>{round.announcementText || `THIS FORM IS ONLY FOR STUDENTS APPLYING FOR 1ST YEAR ACAP / SPOT ROUND REGISTRATION - ${round.name}`} </span>
+              <span>
+                {breakType === 'tea'
+                  ? '☕ TEA BREAK IN PROGRESS — Please relax, we will resume shortly. ☕ TEA BREAK IN PROGRESS — Please relax, we will resume shortly.'
+                  : breakType === 'lunch'
+                  ? '🍱 LUNCH BREAK IN PROGRESS — Enjoy your meal, the round will resume after lunch. 🍱 LUNCH BREAK IN PROGRESS — Enjoy your meal, the round will resume after lunch.'
+                  : (round.announcementText || `THIS FORM IS ONLY FOR STUDENTS APPLYING FOR 1ST YEAR ACAP / SPOT ROUND REGISTRATION - ${round.name}`)}
+                {' '}
+              </span>
             </div>
           )}
         </div>

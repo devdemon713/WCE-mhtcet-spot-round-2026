@@ -192,4 +192,30 @@ router.post('/end', auth, adminOnly, async (req, res) => {
   }
 });
 
+// @route   POST /api/round/break
+// @desc    Start or end a break (tea/lunch) — broadcasts overlay to all connected users (ADMIN)
+router.post('/break', auth, adminOnly, async (req, res) => {
+  try {
+    const { action, type } = req.body;
+    const io = req.app.get('io');
+
+    if (action === 'start') {
+      const breakTypes = ['tea', 'lunch'];
+      if (!breakTypes.includes(type)) {
+        return res.status(400).json({ message: 'Invalid break type. Use "tea" or "lunch".' });
+      }
+      io.emit('break-start', { type, startedAt: new Date() });
+      res.json({ message: `${type} break started`, type });
+    } else if (action === 'end') {
+      io.emit('break-end', { endedAt: new Date() });
+      res.json({ message: 'Break ended' });
+    } else {
+      res.status(400).json({ message: 'Invalid action. Use "start" or "end".' });
+    }
+  } catch (error) {
+    console.error('Break control error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
