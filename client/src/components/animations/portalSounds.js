@@ -2,20 +2,53 @@
  * portalSounds.js — Web Audio API sound effects for the WCE Spot Round Portal.
  * 
  * No external audio files needed. All sounds are synthesized programmatically.
- * Respects user interaction requirement (browsers require a user gesture before audio).
+ * 
+ * BROWSER REQUIREMENT: AudioContext must be created/resumed after a user gesture.
+ * We attach a one-time click/touch listener to pre-warm the context so that
+ * subsequent programmatic calls (e.g., from socket events) work immediately.
  */
 
 let audioCtx = null;
+let warmed = false;
 
 function getAudioContext() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
-  // Resume if suspended (browsers auto-suspend until user gesture)
   if (audioCtx.state === 'suspended') {
     audioCtx.resume();
   }
   return audioCtx;
+}
+
+/**
+ * Pre-warm the AudioContext on the first user interaction.
+ * This must run once so that later calls from socket events succeed.
+ */
+function warmUp() {
+  if (warmed) return;
+  warmed = true;
+  try {
+    const ctx = getAudioContext();
+    // Play a silent buffer to fully unlock audio on iOS/Safari
+    const buf = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
+  } catch (e) {
+    // Ignore — audio just won't work in this browser
+  }
+}
+
+// Attach warm-up listeners globally (runs once, removes itself)
+if (typeof window !== 'undefined') {
+  const events = ['click', 'touchstart', 'keydown'];
+  const handler = () => {
+    warmUp();
+    events.forEach(e => window.removeEventListener(e, handler, true));
+  };
+  events.forEach(e => window.addEventListener(e, handler, { capture: true, passive: true }));
 }
 
 /**
