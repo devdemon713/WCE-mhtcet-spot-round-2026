@@ -86,6 +86,10 @@ const userSchema = new mongoose.Schema({
   branchPreferences: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Branch'
+  }],
+  skippedInRounds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Round'
   }]
 }, { timestamps: true });
 

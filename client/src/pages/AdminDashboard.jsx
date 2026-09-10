@@ -29,6 +29,8 @@ function AdminDashboard() {
   const [alertType, setAlertType] = useState('info');
   const [alertSending, setAlertSending] = useState(false);
   const [breakActive, setBreakActive] = useState(null); // 'tea' | 'lunch' | null
+  const [roundSummary, setRoundSummary] = useState({ allocatedThisRound: [], remainingStudents: [], skippedStudents: [], currentRound: null });
+  const [showSkipped, setShowSkipped] = useState(false);
 
   // Allocation state
   const [allocMode, setAllocMode] = useState('manual');
@@ -94,12 +96,13 @@ function AdminDashboard() {
 
   const fetchAll = async () => {
     try {
-      const [branchRes, studentRes, statsRes, roundRes, alloRes] = await Promise.all([
+      const [branchRes, studentRes, statsRes, roundRes, alloRes, summaryRes] = await Promise.all([
         axios.get('/api/branches'),
         axios.get('/api/students'),
         axios.get('/api/students/stats'),
         axios.get('/api/round/current'),
-        axios.get('/api/allocation/history')
+        axios.get('/api/allocation/history'),
+        axios.get('/api/allocation/round-summary').catch(() => ({ data: { allocatedThisRound: [], remainingStudents: [], skippedStudents: [], currentRound: null } }))
       ]);
       setBranches(branchRes.data);
       setStudents(studentRes.data);
@@ -107,6 +110,7 @@ function AdminDashboard() {
       setRound(roundRes.data);
       syncAnnouncementFields(roundRes.data);
       setAllocations(alloRes.data);
+      setRoundSummary(summaryRes.data);
     } catch (err) {
       console.error('Fetch error:', err);
     }
@@ -240,7 +244,7 @@ function AdminDashboard() {
   // Round management
   const handleRoundAction = async (action) => {
     const confirmMsgs = {
-      initialize: 'Initialize new round? This will reset ALL seats to 0 and cancel all allocations. You can then enter actual vacancy data.',
+      initialize: 'Initialize new round? Existing seats and allocations are preserved. Skipped students will become eligible again.',
       start: 'Start the round? This will mark it as active.',
       pause: 'Pause the round?',
       end: 'End the round? This marks it as completed.'
@@ -248,13 +252,33 @@ function AdminDashboard() {
     if (!window.confirm(confirmMsgs[action])) return;
 
     try {
-      const res = await axios.post(`/api/round/${action}`, {
-        name: 'Spot Round 2025-26'
-      });
+      const res = await axios.post(`/api/round/${action}`, {});
       showMsg(res.data.message);
       fetchAll();
     } catch (err) {
       showMsg('Error: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  // Skip student for current round
+  const handleSkipStudent = async (studentId, studentName) => {
+    try {
+      await axios.post('/api/allocation/skip', { studentId });
+      showMsg(`⏭ ${studentName} skipped for this round`);
+      fetchAll();
+    } catch (err) {
+      showMsg('Skip failed: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  // Unskip student for current round
+  const handleUnskipStudent = async (studentId, studentName) => {
+    try {
+      await axios.post('/api/allocation/unskip', { studentId });
+      showMsg(`↩ ${studentName} unskipped`);
+      fetchAll();
+    } catch (err) {
+      showMsg('Unskip failed: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -273,9 +297,15 @@ function AdminDashboard() {
 
   const pendingStudents = students.filter(s => s.allocationStatus === 'pending');
 
-  // Pending students filtered by search + category, sorted high→low percentile (MHT-CET merit rule)
+  // Get current round ID for skip filtering
+  const currentRoundId = round?._id;
+
+  // Pending students filtered by search + category + NOT skipped in current round
+  // Sorted high→low percentile (MHT-CET merit rule)
   const filteredPendingStudents = pendingStudents
     .filter(s => {
+      // Filter out students skipped in current round
+      if (currentRoundId && s.skippedInRounds && s.skippedInRounds.includes(currentRoundId)) return false;
       if (manualCatFilter !== 'all' && s.category !== manualCatFilter) return false;
       if (manualStudentSearch) {
         const term = manualStudentSearch.toLowerCase();
@@ -572,10 +602,9 @@ function AdminDashboard() {
                           return (
                             <div
                               key={s._id}
-                              onClick={() => setSelectedStudent(isSel ? '' : s._id)}
                               style={{
                                 display: 'flex', alignItems: 'center', gap: '12px',
-                                padding: '12px 16px', cursor: 'pointer',
+                                padding: '12px 16px',
                                 borderBottom: '1px solid rgba(139,26,26,0.12)',
                                 background: isSel ? 'linear-gradient(135deg,#8B1A1A,#B22222)' : idx % 2 === 0 ? '#fff' : '#FFF8F8',
                                 color: isSel ? '#fff' : 'var(--text-primary)',
@@ -583,15 +612,20 @@ function AdminDashboard() {
                               }}
                             >
                               {/* Rank circle */}
-                              <span style={{
-                                minWidth: '32px', height: '32px', borderRadius: '50%',
-                                background: isSel ? 'rgba(255,255,255,0.2)' : '#8B1A1A',
-                                color: '#fff', fontSize: '11px', fontWeight: 800,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                              }}>{idx + 1}</span>
+                              <span
+                                onClick={() => setSelectedStudent(isSel ? '' : s._id)}
+                                style={{
+                                  minWidth: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer',
+                                  background: isSel ? 'rgba(255,255,255,0.2)' : '#8B1A1A',
+                                  color: '#fff', fontSize: '11px', fontWeight: 800,
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                                }}>{idx + 1}</span>
 
                               {/* Name + AppID + badges */}
-                              <div style={{ flex: 1, minWidth: 0 }}>
+                              <div
+                                onClick={() => setSelectedStudent(isSel ? '' : s._id)}
+                                style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+                              >
                                 <div style={{ fontWeight: 700, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.fullName}</div>
                                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginTop: '4px' }}>
                                   <span style={{ fontSize: '11px', opacity: isSel ? 0.8 : 0.5 }}>{s.applicationId}</span>
@@ -601,6 +635,22 @@ function AdminDashboard() {
                                   <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#F0F9FF', color: isSel ? '#fff' : '#0369A1', border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #BAE6FD' }}>{s.gender === 'Female' ? '♀' : '♂'} {s.gender}</span>
                                 </div>
                               </div>
+
+                              {/* Skip button */}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleSkipStudent(s._id, s.fullName); }}
+                                title="Skip this student for current round"
+                                style={{
+                                  padding: '4px 12px', fontSize: '11px', fontWeight: 700,
+                                  borderRadius: '6px', border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #E5A300',
+                                  background: isSel ? 'rgba(255,255,255,0.15)' : '#FFFBEB',
+                                  color: isSel ? '#fff' : '#92400E', cursor: 'pointer',
+                                  whiteSpace: 'nowrap', flexShrink: 0,
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                ⏭ Skip
+                              </button>
                             </div>
                           );
                         })
@@ -819,6 +869,124 @@ function AdminDashboard() {
             </div>
           )}
         </>
+      )}
+
+      {/* ===== ROUND SUMMARY (within allocate context) ===== */}
+      {tab === 'allocate' && (
+        <div style={{ marginTop: '24px' }}>
+          {/* Round Info Header */}
+          {roundSummary.currentRound && (
+            <div className="card" style={{ marginBottom: '16px' }}>
+              <div className="card-header">
+                <h2>📋 Round Summary — {roundSummary.currentRound.name || `Round ${roundSummary.currentRound.roundNumber || 1}`}</h2>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  Round #{roundSummary.currentRound.roundNumber || 1} · Status: {roundSummary.currentRound.status}
+                </span>
+              </div>
+              <div className="card-body">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
+                  <div className="stat-card" style={{ background: '#F0FDF4', border: '1px solid #86EFAC' }}>
+                    <div className="stat-label">Allocated This Round</div>
+                    <div className="stat-value" style={{ color: '#059669' }}>{roundSummary.allocatedThisRound?.length || 0}</div>
+                  </div>
+                  <div className="stat-card" style={{ background: '#FFF8F0', border: '1px solid #FCD34D' }}>
+                    <div className="stat-label">Remaining (Unallocated)</div>
+                    <div className="stat-value" style={{ color: '#B45309' }}>{roundSummary.remainingStudents?.length || 0}</div>
+                  </div>
+                  <div className="stat-card" style={{ background: '#FFF0F0', border: '1px solid #F5BBBB' }}>
+                    <div className="stat-label">Skipped This Round</div>
+                    <div className="stat-value" style={{ color: '#8B1A1A' }}>{roundSummary.skippedStudents?.length || 0}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Allocated This Round */}
+          {roundSummary.allocatedThisRound?.length > 0 && (
+            <div className="card" style={{ marginBottom: '16px' }}>
+              <div className="card-header">
+                <h2>✅ Allocated This Round ({roundSummary.allocatedThisRound.length})</h2>
+              </div>
+              <div className="card-body" style={{ padding: 0 }}>
+                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                  <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#8B1A1A', borderBottom: '2px solid #8B1A1A', background: '#FFF8F8' }}>#</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#8B1A1A', borderBottom: '2px solid #8B1A1A', background: '#FFF8F8' }}>Student</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#8B1A1A', borderBottom: '2px solid #8B1A1A', background: '#FFF8F8' }}>Percentile</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#8B1A1A', borderBottom: '2px solid #8B1A1A', background: '#FFF8F8' }}>Branch</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#8B1A1A', borderBottom: '2px solid #8B1A1A', background: '#FFF8F8' }}>Category</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#8B1A1A', borderBottom: '2px solid #8B1A1A', background: '#FFF8F8' }}>Type</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {roundSummary.allocatedThisRound.map((a, idx) => (
+                        <tr key={a._id} style={{ background: idx % 2 === 0 ? '#fff' : '#FFF8F8' }}>
+                          <td style={{ padding: '8px 12px', fontSize: '12px', fontWeight: 700, color: '#8B1A1A' }}>{idx + 1}</td>
+                          <td style={{ padding: '8px 12px' }}>
+                            <div style={{ fontWeight: 700, fontSize: '13px' }}>{a.student?.fullName}</div>
+                            <div style={{ fontSize: '11px', opacity: 0.5 }}>{a.student?.applicationId}</div>
+                          </td>
+                          <td style={{ padding: '8px 12px', fontSize: '12px', fontWeight: 700 }}>{a.student?.mhtCetPercentile}%ile</td>
+                          <td style={{ padding: '8px 12px', fontSize: '12px' }}>{a.branch?.name} ({a.branch?.type})</td>
+                          <td style={{ padding: '8px 12px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '12px', background: '#FFF0F0', color: '#8B1A1A' }}>{a.seatCategory}</span>
+                          </td>
+                          <td style={{ padding: '8px 12px', fontSize: '11px', textTransform: 'capitalize' }}>{a.seatType}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Skipped Students — collapsible */}
+          {roundSummary.skippedStudents?.length > 0 && (
+            <div className="card" style={{ marginBottom: '16px' }}>
+              <div className="card-header" style={{ cursor: 'pointer' }} onClick={() => setShowSkipped(!showSkipped)}>
+                <h2>{showSkipped ? '▼' : '▶'} Skipped This Round ({roundSummary.skippedStudents.length})</h2>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>These students are skipped for this round only. They will be eligible in the next round.</span>
+              </div>
+              {showSkipped && (
+                <div className="card-body" style={{ padding: 0 }}>
+                  <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
+                    {roundSummary.skippedStudents.map((s, idx) => (
+                      <div key={s._id} style={{
+                        display: 'flex', alignItems: 'center', gap: '12px',
+                        padding: '10px 16px', borderBottom: '1px solid rgba(139,26,26,0.08)',
+                        background: idx % 2 === 0 ? '#fff' : '#FFF8F8'
+                      }}>
+                        <span style={{
+                          minWidth: '28px', height: '28px', borderRadius: '50%',
+                          background: '#D4A017', color: '#fff', fontSize: '10px', fontWeight: 800,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}>{idx + 1}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: '13px' }}>{s.fullName}</div>
+                          <div style={{ fontSize: '11px', opacity: 0.5 }}>{s.applicationId} · {s.mhtCetPercentile}%ile · {s.category}</div>
+                        </div>
+                        <button
+                          onClick={() => handleUnskipStudent(s._id, s.fullName)}
+                          style={{
+                            padding: '4px 12px', fontSize: '11px', fontWeight: 700,
+                            borderRadius: '6px', border: '1px solid #059669',
+                            background: '#F0FDF4', color: '#059669', cursor: 'pointer'
+                          }}
+                        >
+                          ↩ Unskip
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* ===== ROUND MANAGEMENT TAB ===== */}
@@ -1089,7 +1257,7 @@ function AdminDashboard() {
             <div className="card-body" style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '2' }}>
               <ol>
                 <li><strong>Demo Mode (current):</strong> Uses sample data for testing. No actual allocations.</li>
-                <li><strong>Initialize New Round:</strong> Resets ALL seat counts to 0 and cancels all allocations. Use this when the actual spot round begins.</li>
+                <li><strong>Initialize New Round:</strong> Creates a new round. Existing seats and allocations are preserved. Skipped students become eligible again.</li>
                 <li><strong>Setup Mode:</strong> After initialization, go to "Seat Management" tab and enter the actual vacant seat data from MHT-CET portal.</li>
                 <li><strong>Start Round:</strong> Once actual data is entered, start the round to enable allocations.</li>
                 <li><strong>Allocate:</strong> Use the "Allocation" tab for manual or auto allocation.</li>
