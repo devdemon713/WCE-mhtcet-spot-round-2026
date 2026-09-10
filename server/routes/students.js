@@ -37,8 +37,8 @@ router.get('/', auth, adminOnly, async (req, res) => {
 // @desc    Get student statistics (ADMIN)
 router.get('/stats', auth, adminOnly, async (req, res) => {
   try {
-    const total = await User.countDocuments({ role: 'student' });
-    const pending = await User.countDocuments({ role: 'student', allocationStatus: 'pending' });
+    const total     = await User.countDocuments({ role: 'student' });
+    const pending   = await User.countDocuments({ role: 'student', allocationStatus: 'pending' });
     const allocated = await User.countDocuments({ role: 'student', allocationStatus: 'allocated' });
     const confirmed = await User.countDocuments({ role: 'student', allocationStatus: 'confirmed' });
     const cancelled = await User.countDocuments({ role: 'student', allocationStatus: 'cancelled' });
@@ -60,32 +60,11 @@ router.get('/:id', auth, adminOnly, async (req, res) => {
   try {
     const student = await User.findById(req.params.id)
       .select('-password')
-      .populate('allocatedBranch')
-      .populate('branchPreferences');
+      .populate('allocatedBranch');
 
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });
     }
-
-    res.json(student);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   PUT /api/students/:id/preferences
-// @desc    Update student branch preferences (STUDENT)
-router.put('/:id/preferences', auth, async (req, res) => {
-  try {
-    if (req.user._id.toString() !== req.params.id && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
-    const student = await User.findByIdAndUpdate(
-      req.params.id,
-      { branchPreferences: req.body.preferences },
-      { new: true }
-    ).select('-password').populate('branchPreferences');
 
     res.json(student);
   } catch (error) {

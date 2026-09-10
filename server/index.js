@@ -39,6 +39,41 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'WCE Spot Round Server Running' });
 });
 
+// ── ONE-TIME Admin Seed ──────────────────────────────────────────────────────
+// Visit GET /api/seed-admin once in browser to create the admin account.
+// Remove this route after the admin is created.
+app.get('/api/seed-admin', async (req, res) => {
+  try {
+    const User = require('./models/User');
+    const existing = await User.findOne({ email: 'admin@wce.ac.in' });
+    if (existing) {
+      // Ensure role is admin even if already registered
+      existing.role = 'admin';
+      await existing.save();
+      return res.json({ message: '✅ Admin role updated for admin@wce.ac.in', email: 'admin@wce.ac.in', password: 'admin@123' });
+    }
+    const admin = new User({
+      applicationId: 'ADMIN001',
+      fullName:      'WCE Admin',
+      email:         'admin@wce.ac.in',
+      password:      '$2a$10$IlTMkz8s0F3HDtsr3m58yuRvgrkI/V57ROQX/f/6ycnHgRSBK3//K', // hashed version of 'admin@123'
+      phone:         '9999999999',
+      gender:        'Male',
+      category:      'OPEN',
+      studentType:   'CAP',
+      phType:        'Not Applicable',
+      defenceType:   'Not Applicable',
+      mhtCetPercentile: 0,
+      role:          'admin',
+    });
+    await admin.save();
+    res.json({ message: '✅ Admin created successfully!', email: 'admin@wce.ac.in', password: 'admin@123' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+
 // Socket.IO connection handling
 let connectedClients = 0;
 
