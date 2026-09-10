@@ -1630,3 +1630,73 @@ a:hover {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+
+/* ============================================================
+   MICRO-INTERACTIONS — Premium button hover/active effects
+   Added as animation enhancement layer — no existing rules modified.
+   ============================================================ */
+
+/* ---- Button hover lift + active press ---- */
+.btn-primary:hover:not(:disabled),
+.btn-success:hover:not(:disabled),
+.btn-warning:hover:not(:disabled),
+.btn-danger:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-primary:active:not(:disabled),
+.btn-success:active:not(:disabled),
+.btn-warning:active:not(:disabled),
+.btn-danger:active:not(:disabled) {
+  transform: translateY(0px) scale(0.98);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+/* ---- Admin tab micro-interaction ---- */
+.admin-tab {
+  transition: all 0.2s ease, transform 0.15s ease;
+}
+
+.admin-tab:hover:not(.active) {
+  transform: translateY(-1px);
+}
+
+.admin-tab:active {
+  transform: translateY(0px) scale(0.97);
+}
+
+/* ---- Toggle buttons ---- */
+.toggle-btn {
+  transition: all 0.2s ease, transform 0.15s ease;
+}
+
+.toggle-btn:hover {
+  transform: translateY(-1px);
+}
+
+.toggle-btn:active {
+  transform: scale(0.96);
+}
+
+/* ---- Stat card subtle hover ---- */
+.stat-card {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---- Seat flash animation refinement ---- */
+.seat-flash {
+  animation: flashGreen 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---- Announcement new-item highlight ---- */
+.announcement-highlight {
+  animation: announcement-new-glow 1.5s ease-out forwards;
+}
+
+@keyframes announcement-new-glow {
+  0%   { background: rgba(212, 168, 67, 0.2); transform: scale(0.98); }
+  50%  { background: rgba(212, 168, 67, 0.1); transform: scale(1); }
+  100% { background: transparent; transform: scale(1); }
+}

@@ -28,6 +28,7 @@ function AdminDashboard() {
   const [alertMsg, setAlertMsg] = useState('');
   const [alertType, setAlertType] = useState('info');
   const [alertSending, setAlertSending] = useState(false);
+  const [breakActive, setBreakActive] = useState(null); // 'tea' | 'lunch' | null
 
   // Allocation state
   const [allocMode, setAllocMode] = useState('manual');
@@ -75,11 +76,19 @@ function AdminDashboard() {
       setRound(data.round);
       syncAnnouncementFields(data.round);
     });
+    socket.on('break-start', (data) => {
+      setBreakActive(data.type);
+    });
+    socket.on('break-end', () => {
+      setBreakActive(null);
+    });
     return () => {
       socket.off('seat-update');
       socket.off('seats-reset');
       socket.off('round-update');
       socket.off('announcement-update');
+      socket.off('break-start');
+      socket.off('break-end');
     };
   }, [socket]);
 
@@ -1008,6 +1017,67 @@ function AdminDashboard() {
                 >
                   {alertSending ? '⏳' : '📣 Send'}
                 </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Break Control ── */}
+          <div className="card" style={{ marginBottom: '20px', border: '2px solid #D4A843' }}>
+            <div className="card-header" style={{ background: 'linear-gradient(135deg, #B45309, #D97706)', color: '#fff' }}>
+              <h2 style={{ color: '#fff' }}>☕ Break Control</h2>
+              <span style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', fontSize: '11px', padding: '3px 10px', borderRadius: '12px', fontWeight: 700 }}>
+                {breakActive ? `${breakActive.toUpperCase()} BREAK ACTIVE` : 'NO BREAK'}
+              </span>
+            </div>
+            <div className="card-body">
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '14px' }}>
+                Start a break to show a premium animated overlay on <strong>all student screens</strong>. The overlay is purely visual — all data remains accessible underneath.
+              </p>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {!breakActive ? (
+                  <>
+                    <button
+                      className="btn btn-warning"
+                      onClick={async () => {
+                        try {
+                          await axios.post('/api/round/break', { action: 'start', type: 'tea' });
+                          showMsg('☕ Tea break started for all users.');
+                        } catch (e) {
+                          showMsg('Break error: ' + (e.response?.data?.message || e.message));
+                        }
+                      }}
+                    >
+                      ☕ Start Tea Break
+                    </button>
+                    <button
+                      className="btn btn-warning"
+                      onClick={async () => {
+                        try {
+                          await axios.post('/api/round/break', { action: 'start', type: 'lunch' });
+                          showMsg('🍱 Lunch break started for all users.');
+                        } catch (e) {
+                          showMsg('Break error: ' + (e.response?.data?.message || e.message));
+                        }
+                      }}
+                    >
+                      🍱 Start Lunch Break
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="btn btn-success"
+                    onClick={async () => {
+                      try {
+                        await axios.post('/api/round/break', { action: 'end' });
+                        showMsg('✅ Break ended for all users.');
+                      } catch (e) {
+                        showMsg('Break error: ' + (e.response?.data?.message || e.message));
+                      }
+                    }}
+                  >
+                    ✅ End Break
+                  </button>
+                )}
               </div>
             </div>
           </div>

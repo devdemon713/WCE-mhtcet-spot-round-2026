@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import App from './App';
 import './index.css';
+import './components/animations/animations.css';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
