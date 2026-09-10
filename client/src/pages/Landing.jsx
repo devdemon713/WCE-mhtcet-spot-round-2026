@@ -140,12 +140,7 @@ function Landing() {
       {/* Sub Header */}
       <div className="sub-header">
         <div className="sub-header-content">
-          <svg className="sub-header-logo" width="64" height="64" viewBox="0 0 64 64" fill="none">
-            <circle cx="32" cy="32" r="30" stroke="#8B1A1A" strokeWidth="2" fill="rgba(139,26,26,0.05)"/>
-            <text x="32" y="24" textAnchor="middle" fill="#8B1A1A" fontSize="12" fontWeight="700" fontFamily="serif">WCE</text>
-            <text x="32" y="36" textAnchor="middle" fill="#8B1A1A" fontSize="8" fontWeight="400" fontFamily="serif">SANGLI</text>
-            <text x="32" y="46" textAnchor="middle" fill="rgba(139,26,26,0.5)" fontSize="6" fontFamily="serif">EST. 1947</text>
-          </svg>
+          <img src="/wce-logo.png" alt="Walchand College of Engineering Sangli Logo" className="sub-header-logo" />
           <div className="sub-header-text">
             <h1>Walchand College of Engineering, Sangli</h1>
             <div className="portal-label">
