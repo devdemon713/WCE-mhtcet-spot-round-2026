@@ -249,10 +249,8 @@ router.post('/auto', auth, adminOnly, async (req, res) => {
     // ── STEP 2: Process each student in merit order ──────────────────────────
     for (const student of pendingStudents) {
 
-      // Use branch preferences if set, else try all branches
-      const eligibleBranches = (student.branchPreferences && student.branchPreferences.length > 0)
-        ? branches.filter(b => student.branchPreferences.some(p => p.toString() === b._id.toString()))
-        : branches;
+      // All branches considered — no branch preferences feature
+      const eligibleBranches = branches;
 
       let allocated = false;
 
