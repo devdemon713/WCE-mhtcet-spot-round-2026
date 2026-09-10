@@ -176,6 +176,9 @@ router.post('/manual', auth, adminOnly, async (req, res) => {
   try {
     const { studentId, branchId, seatCategory, seatType, seatPool } = req.body;
 
+    // Get current round
+    const currentRound = await Round.findOne().sort({ createdAt: -1 });
+
     const student = await User.findById(studentId);
     if (!student) return res.status(404).json({ message: 'Student not found' });
     if (student.allocationStatus === 'allocated' || student.allocationStatus === 'confirmed') {
@@ -193,6 +196,7 @@ router.post('/manual', auth, adminOnly, async (req, res) => {
       seatPool: pool,
       allocatedBy: 'manual',
       allocatedByAdmin: req.user._id,
+      round: currentRound ? currentRound._id : null,
       status: 'allocated'
     });
     await allocation.save();
@@ -226,14 +230,24 @@ router.post('/auto', auth, adminOnly, async (req, res) => {
   try {
     const { branchId } = req.body;
 
+    // Get current round
+    const currentRound = await Round.findOne().sort({ createdAt: -1 });
+    const currentRoundId = currentRound ? currentRound._id : null;
+
     // ── STEP 1: Sort students by merit ───────────────────────────────────────
     // Official rule: highest MHT-CET percentile first.
     // Tiebreaker 1: MHT-CET raw score descending
     // Tiebreaker 2: SSC aggregate percentage descending
-    const pendingStudents = await User.find({
+    // Filter out students skipped in the current round
+    const allPending = await User.find({
       role: 'student',
       allocationStatus: 'pending'
     }).sort({ mhtCetPercentile: -1, mhtCetScore: -1, sscAggregate: -1 });
+
+    // Exclude students skipped in this round
+    const pendingStudents = currentRoundId
+      ? allPending.filter(s => !s.skippedInRounds || !s.skippedInRounds.some(r => r.toString() === currentRoundId.toString()))
+      : allPending;
 
     if (pendingStudents.length === 0) {
       return res.json({ message: 'No pending students to allocate', allocations: [] });
@@ -358,6 +372,7 @@ router.post('/auto', auth, adminOnly, async (req, res) => {
               seatPool: attempt.pool,
               allocatedBy: 'auto',
               allocatedByAdmin: req.user._id,
+              round: currentRoundId,
               status: 'allocated'
             });
             await allocation.save();
@@ -426,9 +441,14 @@ router.post('/auto', auth, adminOnly, async (req, res) => {
 // @desc    Get all allocations (admin)
 router.get('/history', auth, adminOnly, async (req, res) => {
   try {
-    const allocations = await Allocation.find()
+    const filter = {};
+    if (req.query.roundId) {
+      filter.round = req.query.roundId;
+    }
+    const allocations = await Allocation.find(filter)
       .populate('student', '-password')
       .populate('branch')
+      .populate('round', 'name roundNumber')
       .sort({ createdAt: -1 });
     res.json(allocations);
   } catch (error) {
@@ -485,6 +505,103 @@ router.get('/student/:studentId', auth, async (req, res) => {
     }).populate('branch');
     res.json(allocation);
   } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST /api/allocation/skip
+// @desc    Skip a student for the current round (ADMIN)
+router.post('/skip', auth, adminOnly, async (req, res) => {
+  try {
+    const { studentId } = req.body;
+    if (!studentId) return res.status(400).json({ message: 'studentId is required' });
+
+    const currentRound = await Round.findOne().sort({ createdAt: -1 });
+    if (!currentRound) return res.status(400).json({ message: 'No active round' });
+
+    const student = await User.findById(studentId);
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    // Check if already skipped in this round
+    const alreadySkipped = student.skippedInRounds && student.skippedInRounds.some(
+      r => r.toString() === currentRound._id.toString()
+    );
+    if (alreadySkipped) {
+      return res.status(400).json({ message: 'Student already skipped in this round' });
+    }
+
+    student.skippedInRounds = [...(student.skippedInRounds || []), currentRound._id];
+    await student.save();
+
+    console.log(`⏭ Skipped: ${student.applicationId} in Round ${currentRound.roundNumber}`);
+    res.json({ message: `${student.fullName} skipped for this round`, studentId: student._id });
+  } catch (error) {
+    console.error('Skip error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST /api/allocation/unskip
+// @desc    Unskip a student for the current round (ADMIN)
+router.post('/unskip', auth, adminOnly, async (req, res) => {
+  try {
+    const { studentId } = req.body;
+    if (!studentId) return res.status(400).json({ message: 'studentId is required' });
+
+    const currentRound = await Round.findOne().sort({ createdAt: -1 });
+    if (!currentRound) return res.status(400).json({ message: 'No active round' });
+
+    const student = await User.findById(studentId);
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    student.skippedInRounds = (student.skippedInRounds || []).filter(
+      r => r.toString() !== currentRound._id.toString()
+    );
+    await student.save();
+
+    console.log(`↩ Unskipped: ${student.applicationId} in Round ${currentRound.roundNumber}`);
+    res.json({ message: `${student.fullName} unskipped for this round`, studentId: student._id });
+  } catch (error) {
+    console.error('Unskip error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/allocation/round-summary
+// @desc    Get round-wise summary: allocated this round, remaining students, skipped (ADMIN)
+router.get('/round-summary', auth, adminOnly, async (req, res) => {
+  try {
+    const currentRound = await Round.findOne().sort({ createdAt: -1 });
+    if (!currentRound) return res.json({ currentRound: null, allocatedThisRound: [], remainingStudents: [], skippedStudents: [] });
+
+    // Allocations made in this round
+    const allocatedThisRound = await Allocation.find({
+      round: currentRound._id,
+      status: { $ne: 'cancelled' }
+    }).populate('student', '-password').populate('branch').sort({ createdAt: -1 });
+
+    // All pending students sorted by merit (MHT-CET percentile desc)
+    const allPending = await User.find({
+      role: 'student',
+      allocationStatus: 'pending'
+    }).sort({ mhtCetPercentile: -1, mhtCetScore: -1, sscAggregate: -1 });
+
+    // Separate skipped vs remaining
+    const skippedStudents = allPending.filter(s =>
+      s.skippedInRounds && s.skippedInRounds.some(r => r.toString() === currentRound._id.toString())
+    );
+    const remainingStudents = allPending.filter(s =>
+      !s.skippedInRounds || !s.skippedInRounds.some(r => r.toString() === currentRound._id.toString())
+    );
+
+    res.json({
+      currentRound: currentRound.toJSON(),
+      allocatedThisRound,
+      remainingStudents: remainingStudents.map(s => { const o = s.toJSON(); delete o.password; return o; }),
+      skippedStudents: skippedStudents.map(s => { const o = s.toJSON(); delete o.password; return o; })
+    });
+  } catch (error) {
+    console.error('Round summary error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
