@@ -42,7 +42,6 @@ const userSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['OPEN', 'SC', 'ST', 'VJ_DT', 'NTB', 'NTC', 'NTD', 'OBC', 'SEBC', 'EWS'],
     default: 'OPEN'
   },
   gender: {
@@ -56,7 +55,6 @@ const userSchema = new mongoose.Schema({
   isMinority: { type: Boolean, default: false },
   studentType: {
     type: String,
-    enum: ['CAP', 'Non-CAP', 'Diploma'],
     default: 'CAP'
   },
   sscAggregate: { type: Number, default: 0 },

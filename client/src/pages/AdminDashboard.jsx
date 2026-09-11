@@ -69,6 +69,7 @@ function AdminDashboard() {
 
   // Branch Upgrade state
   const [upgradeStudent, setUpgradeStudent] = useState('');
+  const [upgradeStudentSearch, setUpgradeStudentSearch] = useState('');
   const [upgradeFromBranch, setUpgradeFromBranch] = useState('');
   const [upgradeFromCat, setUpgradeFromCat] = useState('OPEN');
   const [upgradeFromType, setUpgradeFromType] = useState('general');
@@ -310,8 +311,8 @@ function AdminDashboard() {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       if (!s.fullName.toLowerCase().includes(term) &&
-          !s.applicationId.toLowerCase().includes(term) &&
-          !s.email.toLowerCase().includes(term)) return false;
+        !s.applicationId.toLowerCase().includes(term) &&
+        !s.email.toLowerCase().includes(term)) return false;
     }
     if (filterCategory && s.category !== filterCategory) return false;
     if (filterStatus && s.allocationStatus !== filterStatus) return false;
@@ -329,13 +330,13 @@ function AdminDashboard() {
     .filter(s => {
       // Filter out students skipped in current round
       if (currentRoundId && s.skippedInRounds && s.skippedInRounds.includes(currentRoundId)) return false;
-      if (manualCatFilter !== 'all' && s.category !== manualCatFilter) return false;
+      if (manualCatFilter !== 'all' && normalizeCat(s.category) !== normalizeCat(manualCatFilter)) return false;
       if (manualStudentSearch) {
         const term = manualStudentSearch.toLowerCase();
-        return (
-          s.fullName.toLowerCase().includes(term) ||
-          s.applicationId.toLowerCase().includes(term)
-        );
+        const name = (s.fullName || '').toLowerCase();
+        const appId = (s.applicationId || '').toLowerCase();
+        const phone = (s.phone || '').toLowerCase();
+        return name.includes(term) || appId.includes(term) || phone.includes(term);
       }
       return true;
     })
@@ -571,9 +572,10 @@ function AdminDashboard() {
               <button className={`toggle-btn ${allocMode === 'manual' ? 'active' : ''}`} onClick={() => setAllocMode('manual')}>
                 👤 Manual
               </button>
-              <button className={`toggle-btn ${allocMode === 'auto' ? 'active' : ''}`} onClick={() => setAllocMode('auto')}>
+              {/* <button className={`toggle-btn ${allocMode === 'auto' ? 'active' : ''}`} onClick={() => setAllocMode('auto')}>
                 🤖 Auto
-              </button>
+              </button> */}
+
               <button className={`toggle-btn ${allocMode === 'upgrade' ? 'active' : ''}`} onClick={() => setAllocMode('upgrade')}>
                 🔄 Branch Upgrade
               </button>
@@ -760,13 +762,13 @@ function AdminDashboard() {
                   </div>
                 </div>
 
-                <button
+                {/* <button
                   className="btn btn-success btn-lg btn-block"
                   onClick={handleAutoAllocate}
                   disabled={allocating || pendingStudents.length === 0 || totalVacant === 0}
                 >
                   {allocating ? '🔄 Running Auto Allocation...' : '🤖 Run Auto Allocation for All Pending Students'}
-                </button>
+                </button> */}
 
                 {pendingStudents.length === 0 && (
                   <div className="alert alert-warning" style={{ marginTop: '12px' }}>No pending students to allocate.</div>
@@ -795,17 +797,75 @@ function AdminDashboard() {
                 </div>
 
                 <div className="form-grid">
-                  {/* Student Selector */}
+                  {/* Student Selector with Search */}
                   <div className="form-group full-width">
                     <label>Select Student <span className="required">*</span></label>
-                    <select value={upgradeStudent} onChange={e => setUpgradeStudent(e.target.value)}>
-                      <option value="">-- Select any student --</option>
-                      {students.map(s => (
-                        <option key={s._id} value={s._id}>
-                          {s.applicationId} — {s.fullName} ({s.mhtCetPercentile}%ile, {normalizeCat(s.category)}, {s.gender})
-                        </option>
-                      ))}
-                    </select>
+                    <input
+                      type="text"
+                      placeholder="🔍 Search by name, application ID, or phone…"
+                      value={upgradeStudentSearch}
+                      onChange={e => { setUpgradeStudentSearch(e.target.value); setUpgradeStudent(''); }}
+                      style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontFamily: 'inherit', marginBottom: '8px' }}
+                    />
+                    <div style={{ border: '1px solid #8B1A1A', borderRadius: '8px', maxHeight: '220px', overflowY: 'auto', background: '#fff', boxShadow: '0 2px 8px rgba(139,26,26,0.08)' }}>
+                      {(() => {
+                        const filtered = students.filter(s => {
+                          if (!upgradeStudentSearch) return false;
+                          const term = upgradeStudentSearch.toLowerCase();
+                          return (s.fullName || '').toLowerCase().includes(term) ||
+                            (s.applicationId || '').toLowerCase().includes(term) ||
+                            (s.phone || '').toLowerCase().includes(term);
+                        }).slice(0, 50);
+                        if (!upgradeStudentSearch) return (
+                          <div style={{ padding: '18px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                            Type a name or application ID to search…
+                          </div>
+                        );
+                        if (filtered.length === 0) return (
+                          <div style={{ padding: '18px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                            No students found
+                          </div>
+                        );
+                        return filtered.map((s, idx) => {
+                          const isSel = upgradeStudent === s._id;
+                          return (
+                            <div
+                              key={s._id}
+                              onClick={() => setUpgradeStudent(isSel ? '' : s._id)}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: '10px',
+                                padding: '10px 14px', cursor: 'pointer',
+                                borderBottom: '1px solid rgba(139,26,26,0.08)',
+                                background: isSel ? 'linear-gradient(135deg,#8B1A1A,#B22222)' : idx % 2 === 0 ? '#fff' : '#FFF8F8',
+                                color: isSel ? '#fff' : 'var(--text-primary)',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: 700, fontSize: '13px' }}>{s.fullName}</div>
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginTop: '3px' }}>
+                                  <span style={{ fontSize: '11px', opacity: isSel ? 0.8 : 0.5 }}>{s.applicationId}</span>
+                                  <span style={{ opacity: 0.3 }}>·</span>
+                                  <span style={{ fontSize: '11px', fontWeight: 800, padding: '1px 7px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#FFF0F0', color: isSel ? '#fff' : '#8B1A1A' }}>📊 {s.mhtCetPercentile}%ile</span>
+                                  <span style={{ fontSize: '11px', fontWeight: 700, padding: '1px 7px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#FFFBEB', color: isSel ? '#fff' : '#B45309' }}>{normalizeCat(s.category)}</span>
+                                  <span style={{ fontSize: '11px', fontWeight: 600, padding: '1px 7px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#F0F9FF', color: isSel ? '#fff' : '#0369A1' }}>{s.gender === 'Female' ? '♀' : '♂'} {s.gender}</span>
+                                  <span style={{ fontSize: '11px', fontWeight: 600, padding: '1px 7px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#F5F3FF', color: isSel ? '#fff' : '#6D28D9' }}>{s.allocationStatus}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                    {upgradeStudent && (() => {
+                      const s = students.find(x => x._id === upgradeStudent);
+                      if (!s) return null;
+                      return (
+                        <div style={{ marginTop: '8px', padding: '10px 16px', background: 'linear-gradient(135deg,#8B1A1A,#B22222)', borderRadius: '6px', fontSize: '13px', color: '#fff', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          ✅ Selected: <strong>{s.fullName}</strong> · {s.applicationId} · {s.mhtCetPercentile}%ile · {normalizeCat(s.category)} · {s.gender}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* FROM branch */}
@@ -1176,10 +1236,10 @@ function AdminDashboard() {
               {/* Alert type selector */}
               <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
                 {[
-                  { val: 'info',    label: 'ℹ️ Info',    bg: '#1D4ED8' },
-                  { val: 'success', label: '✅ Update',   bg: '#15803D' },
-                  { val: 'warning', label: '⚠️ Warning',  bg: '#B45309' },
-                  { val: 'urgent',  label: '🚨 Urgent',   bg: '#8B1A1A' }
+                  { val: 'info', label: 'ℹ️ Info', bg: '#1D4ED8' },
+                  { val: 'success', label: '✅ Update', bg: '#15803D' },
+                  { val: 'warning', label: '⚠️ Warning', bg: '#B45309' },
+                  { val: 'urgent', label: '🚨 Urgent', bg: '#8B1A1A' }
                 ].map(t => (
                   <button
                     key={t.val}
