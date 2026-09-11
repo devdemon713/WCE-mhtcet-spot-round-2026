@@ -311,8 +311,8 @@ function AdminDashboard() {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       if (!s.fullName.toLowerCase().includes(term) &&
-          !s.applicationId.toLowerCase().includes(term) &&
-          !s.email.toLowerCase().includes(term)) return false;
+        !s.applicationId.toLowerCase().includes(term) &&
+        !s.email.toLowerCase().includes(term)) return false;
     }
     if (filterCategory && s.category !== filterCategory) return false;
     if (filterStatus && s.allocationStatus !== filterStatus) return false;
@@ -572,9 +572,10 @@ function AdminDashboard() {
               <button className={`toggle-btn ${allocMode === 'manual' ? 'active' : ''}`} onClick={() => setAllocMode('manual')}>
                 👤 Manual
               </button>
-              <button className={`toggle-btn ${allocMode === 'auto' ? 'active' : ''}`} onClick={() => setAllocMode('auto')}>
+              {/* <button className={`toggle-btn ${allocMode === 'auto' ? 'active' : ''}`} onClick={() => setAllocMode('auto')}>
                 🤖 Auto
-              </button>
+              </button> */}
+
               <button className={`toggle-btn ${allocMode === 'upgrade' ? 'active' : ''}`} onClick={() => setAllocMode('upgrade')}>
                 🔄 Branch Upgrade
               </button>
@@ -761,13 +762,13 @@ function AdminDashboard() {
                   </div>
                 </div>
 
-                <button
+                {/* <button
                   className="btn btn-success btn-lg btn-block"
                   onClick={handleAutoAllocate}
                   disabled={allocating || pendingStudents.length === 0 || totalVacant === 0}
                 >
                   {allocating ? '🔄 Running Auto Allocation...' : '🤖 Run Auto Allocation for All Pending Students'}
-                </button>
+                </button> */}
 
                 {pendingStudents.length === 0 && (
                   <div className="alert alert-warning" style={{ marginTop: '12px' }}>No pending students to allocate.</div>
@@ -812,8 +813,8 @@ function AdminDashboard() {
                           if (!upgradeStudentSearch) return false;
                           const term = upgradeStudentSearch.toLowerCase();
                           return (s.fullName || '').toLowerCase().includes(term) ||
-                                 (s.applicationId || '').toLowerCase().includes(term) ||
-                                 (s.phone || '').toLowerCase().includes(term);
+                            (s.applicationId || '').toLowerCase().includes(term) ||
+                            (s.phone || '').toLowerCase().includes(term);
                         }).slice(0, 50);
                         if (!upgradeStudentSearch) return (
                           <div style={{ padding: '18px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
@@ -1235,10 +1236,10 @@ function AdminDashboard() {
               {/* Alert type selector */}
               <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
                 {[
-                  { val: 'info',    label: 'ℹ️ Info',    bg: '#1D4ED8' },
-                  { val: 'success', label: '✅ Update',   bg: '#15803D' },
-                  { val: 'warning', label: '⚠️ Warning',  bg: '#B45309' },
-                  { val: 'urgent',  label: '🚨 Urgent',   bg: '#8B1A1A' }
+                  { val: 'info', label: 'ℹ️ Info', bg: '#1D4ED8' },
+                  { val: 'success', label: '✅ Update', bg: '#15803D' },
+                  { val: 'warning', label: '⚠️ Warning', bg: '#B45309' },
+                  { val: 'urgent', label: '🚨 Urgent', bg: '#8B1A1A' }
                 ].map(t => (
                   <button
                     key={t.val}
