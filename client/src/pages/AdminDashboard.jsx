@@ -329,13 +329,13 @@ function AdminDashboard() {
     .filter(s => {
       // Filter out students skipped in current round
       if (currentRoundId && s.skippedInRounds && s.skippedInRounds.includes(currentRoundId)) return false;
-      if (manualCatFilter !== 'all' && s.category !== manualCatFilter) return false;
+      if (manualCatFilter !== 'all' && normalizeCat(s.category) !== normalizeCat(manualCatFilter)) return false;
       if (manualStudentSearch) {
         const term = manualStudentSearch.toLowerCase();
-        return (
-          s.fullName.toLowerCase().includes(term) ||
-          s.applicationId.toLowerCase().includes(term)
-        );
+        const name = (s.fullName || '').toLowerCase();
+        const appId = (s.applicationId || '').toLowerCase();
+        const phone = (s.phone || '').toLowerCase();
+        return name.includes(term) || appId.includes(term) || phone.includes(term);
       }
       return true;
     })
