@@ -7,7 +7,6 @@ const userSchema = new mongoose.Schema({
   applicationId: {
     type: String,
     required: [true, 'MHT-CET Application ID is required'],
-    unique: true,
     trim: true
   },
   fullName: {
