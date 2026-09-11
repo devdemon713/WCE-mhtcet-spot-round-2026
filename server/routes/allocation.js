@@ -606,4 +606,93 @@ router.get('/round-summary', auth, adminOnly, async (req, res) => {
   }
 });
 
+// @route   GET /api/allocation/export-csv
+// @desc    Download CSV of allocated students for a specific round (ADMIN)
+router.get('/export-csv', auth, adminOnly, async (req, res) => {
+  try {
+    const { roundId } = req.query;
+    const filter = { status: { $ne: 'cancelled' } };
+    let roundLabel = 'all-rounds';
+
+    if (roundId) {
+      filter.round = roundId;
+      const round = await Round.findById(roundId);
+      if (round) {
+        roundLabel = (round.name || `Round-${round.roundNumber}`).replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/\s+/g, '-');
+      }
+    }
+
+    const allocations = await Allocation.find(filter)
+      .populate('student', '-password')
+      .populate('branch')
+      .populate('round', 'name roundNumber')
+      .sort({ createdAt: 1 });
+
+    // CSV header
+    const headers = [
+      'Sr No', 'Application ID', 'Full Name', 'Email', 'Phone',
+      'MHT-CET Percentile', 'MHT-CET Score', 'JEE Main Percentile',
+      'Category', 'Gender', 'Student Type',
+      'Is PWD', 'Is DEF', 'Is Orphan', 'Is Minority',
+      'Branch Code', 'Branch Name', 'Branch Type',
+      'Seat Category', 'Seat Type', 'Seat Pool', 'Allocation Method',
+      'Round Name', 'Round Number', 'Status', 'Allocated At'
+    ];
+
+    // Escape CSV field (wrap in quotes if contains comma, quote, or newline)
+    const esc = (val) => {
+      if (val == null) return '';
+      const str = String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return '"' + str.replace(/"/g, '""') + '"';
+      }
+      return str;
+    };
+
+    const rows = allocations.map((a, idx) => {
+      const s = a.student || {};
+      const b = a.branch || {};
+      const r = a.round || {};
+      return [
+        idx + 1,
+        esc(s.applicationId),
+        esc(s.fullName),
+        esc(s.email),
+        esc(s.phone),
+        s.mhtCetPercentile || 0,
+        s.mhtCetScore || 0,
+        s.jeeMainPercentile || 0,
+        esc(s.category),
+        esc(s.gender),
+        esc(s.studentType),
+        s.isPWD ? 'Yes' : 'No',
+        s.isDEF ? 'Yes' : 'No',
+        s.isOrphan ? 'Yes' : 'No',
+        s.isMinority ? 'Yes' : 'No',
+        esc(b.choiceCode),
+        esc(b.name),
+        esc(b.type),
+        esc(a.seatCategory),
+        esc(a.seatType),
+        esc(a.seatPool),
+        esc(a.allocatedBy),
+        esc(r.name),
+        r.roundNumber || '',
+        esc(a.status),
+        a.createdAt ? new Date(a.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : ''
+      ].join(',');
+    });
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const filename = `allocated-students-${roundLabel}-${new Date().toISOString().slice(0, 10)}.csv`;
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csv);
+  } catch (error) {
+    console.error('CSV export error:', error);
+    res.status(500).json({ message: 'Server error during CSV export' });
+  }
+});
+
 module.exports = router;

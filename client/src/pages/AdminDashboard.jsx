@@ -879,9 +879,53 @@ function AdminDashboard() {
             <div className="card" style={{ marginBottom: '16px' }}>
               <div className="card-header">
                 <h2>📋 Round Summary — {roundSummary.currentRound.name || `Round ${roundSummary.currentRound.roundNumber || 1}`}</h2>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  Round #{roundSummary.currentRound.roundNumber || 1} · Status: {roundSummary.currentRound.status}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <button
+                    className="btn btn-sm"
+                    onClick={async () => {
+                      try {
+                        const roundId = roundSummary.currentRound._id;
+                        const res = await axios.get(`/api/allocation/export-csv?roundId=${roundId}`, {
+                          responseType: 'blob'
+                        });
+                        const url = window.URL.createObjectURL(new Blob([res.data]));
+                        const link = document.createElement('a');
+                        link.href = url;
+                        const disposition = res.headers['content-disposition'];
+                        const filename = disposition
+                          ? disposition.split('filename=')[1]?.replace(/"/g, '')
+                          : `allocated-students-round-${roundSummary.currentRound.roundNumber || 1}.csv`;
+                        link.setAttribute('download', filename);
+                        document.body.appendChild(link);
+                        link.click();
+                        link.remove();
+                        window.URL.revokeObjectURL(url);
+                        showMsg('✅ CSV downloaded successfully!');
+                      } catch (err) {
+                        showMsg('CSV download failed: ' + (err.response?.data?.message || err.message));
+                      }
+                    }}
+                    style={{
+                      background: 'linear-gradient(135deg, #059669, #10B981)',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '6px 14px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    📥 Download CSV
+                  </button>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    Round #{roundSummary.currentRound.roundNumber || 1} · Status: {roundSummary.currentRound.status}
+                  </span>
+                </div>
               </div>
               <div className="card-body">
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
