@@ -378,6 +378,43 @@ const branches = [
     ewsSeats: 0,
     tfwsChoiceCode: '0600792171UT',
     tfwsSeats: 0
+  },
+  {
+    choiceCode: '06000738810U',
+    name: 'VLSI Design & Technology',
+    type: 'Unaided',
+    sanctionedIntake: 60,
+    msSeats: 0,
+    minoritySeats: 0,
+    allIndiaSeats: 0,
+    instituteSeats: 0,
+    orphanSeats: 0,
+    stateLevel: {
+      OPEN: { general: 0, ladies: 0 },
+      SC: { general: 0, ladies: 0 },
+      ST: { general: 0, ladies: 0 },
+      VJ_DT: { general: 0, ladies: 0 },
+      NTB: { general: 0, ladies: 0 },
+      NTC: { general: 0, ladies: 0 },
+      NTD: { general: 0, ladies: 0 },
+      OBC: { general: 0, ladies: 0 },
+      SEBC: { general: 0, ladies: 0 }
+    },
+    pwd: {
+      OPEN: { general: 0, ladies: 0 }, SC: { general: 0, ladies: 0 }, ST: { general: 0, ladies: 0 },
+      VJ_DT: { general: 0, ladies: 0 }, NTB: { general: 0, ladies: 0 }, NTC: { general: 0, ladies: 0 },
+      NTD: { general: 0, ladies: 0 }, OBC: { general: 0, ladies: 0 }, SEBC: { general: 0, ladies: 0 }
+    },
+    def: {
+      OPEN: { general: 0, ladies: 0 }, SC: { general: 0, ladies: 0 }, ST: { general: 0, ladies: 0 },
+      VJ_DT: { general: 0, ladies: 0 }, NTB: { general: 0, ladies: 0 }, NTC: { general: 0, ladies: 0 },
+      NTD: { general: 0, ladies: 0 }, OBC: { general: 0, ladies: 0 }, SEBC: { general: 0, ladies: 0 }
+    },
+    pwdCommonReserved: 0,
+    defCommonReserved: 0,
+    ewsSeats: 0,
+    tfwsChoiceCode: '',
+    tfwsSeats: 0
   }
 ];
 

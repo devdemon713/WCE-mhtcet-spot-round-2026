@@ -47,6 +47,10 @@ const roundSchema = new mongoose.Schema({
   totalSeatsAllocated: {
     type: Number,
     default: 0
+  },
+  roundNumber: {
+    type: Number,
+    default: 1
   }
 }, { timestamps: true });
 

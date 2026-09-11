@@ -71,55 +71,35 @@ router.post('/alert', auth, adminOnly, async (req, res) => {
 });
 
 // @route   POST /api/round/initialize
-// @desc    Initialize a new actual round (ADMIN) - resets all data
+// @desc    Initialize a new round (ADMIN) - preserves seats and allocations
 router.post('/initialize', auth, adminOnly, async (req, res) => {
   try {
     const { name } = req.body;
 
+    // Get the previous round to determine next round number
+    const prevRound = await Round.findOne().sort({ createdAt: -1 });
+    const nextRoundNumber = prevRound ? (prevRound.roundNumber || 1) + 1 : 1;
+
     // Mark previous rounds as completed
     await Round.updateMany({ status: { $ne: 'completed' } }, { status: 'completed', endedAt: new Date() });
 
-    // Create new round in setup mode
+    // Create new round in setup mode — seats and allocations are PRESERVED
     const round = new Round({
-      name: name || 'Spot Round 2025-26',
+      name: name || `Spot Round 2025-26 — Round ${nextRoundNumber}`,
       status: 'setup',
       isDemo: false,
-      description: 'Actual round - enter vacancy data to begin'
+      roundNumber: nextRoundNumber,
+      description: `Round ${nextRoundNumber} — seats and previous allocations preserved`
     });
     await round.save();
 
-    // Reset all seat data to 0
-    const emptySlot = { general: 0, ladies: 0 };
-    const emptyCategories = {
-      OPEN: { ...emptySlot }, SC: { ...emptySlot }, ST: { ...emptySlot },
-      VJ_DT: { ...emptySlot }, NTB: { ...emptySlot }, NTC: { ...emptySlot },
-      NTD: { ...emptySlot }, OBC: { ...emptySlot }, SEBC: { ...emptySlot }
-    };
-
-    await Branch.updateMany({}, {
-      $set: {
-        stateLevel: emptyCategories, pwd: emptyCategories, def: emptyCategories,
-        pwdCommonReserved: 0, defCommonReserved: 0, ewsSeats: 0,
-        allIndiaSeats: 0, instituteSeats: 0, orphanSeats: 0, minoritySeats: 0
-      }
-    });
-
-    const resetBranches = await Branch.find({ isActive: true });
-
-    // Cancel all existing allocations
-    await Allocation.updateMany({ status: { $ne: 'cancelled' } }, { status: 'cancelled' });
-    await User.updateMany({ role: 'student' }, {
-      allocationStatus: 'pending',
-      allocatedBranch: null,
-      allocatedSeatCategory: null,
-      allocatedSeatType: null
-    });
-
     const io = req.app.get('io');
-    io.emit('seats-reset', { branches: resetBranches.map(branch => branch.toJSON()), updatedAt: new Date() });
     io.emit('round-update', { round: round.toJSON(), updatedAt: new Date() });
 
-    res.json({ message: 'New round initialized. All seats reset to 0. Enter actual vacancy data.', round });
+    res.json({
+      message: `Round ${nextRoundNumber} initialized. Existing seats and allocations are preserved.`,
+      round
+    });
   } catch (error) {
     console.error('Initialize round error:', error);
     res.status(500).json({ message: 'Server error' });

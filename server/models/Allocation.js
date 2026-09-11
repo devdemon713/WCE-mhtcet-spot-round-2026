@@ -41,6 +41,11 @@ const allocationSchema = new mongoose.Schema({
     ref: 'User',
     default: null
   },
+  round: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Round',
+    default: null
+  },
   status: {
     type: String,
     enum: ['allocated', 'confirmed', 'cancelled'],
