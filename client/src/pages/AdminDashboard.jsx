@@ -9,6 +9,29 @@ const CAT_LABELS = {
   NTB: 'NT-B', NTC: 'NT-C', NTD: 'NT-D', OBC: 'OBC', SEBC: 'SEBC', EWS: 'EWS'
 };
 
+// Normalize messy category values from imported data to clean display labels
+function normalizeCat(raw) {
+  if (!raw) return '—';
+  const s = raw.trim().replace(/[$#]+$/g, '').trim(); // strip trailing $, #
+  const u = s.toUpperCase();
+  // Direct matches
+  if (CAT_LABELS[u]) return CAT_LABELS[u];
+  if (CAT_LABELS[s]) return CAT_LABELS[s];
+  // Known variants
+  if (u === 'OPEN') return 'OPEN';
+  if (u === 'SC') return 'SC';
+  if (u === 'ST') return 'ST';
+  if (u === 'OBC') return 'OBC';
+  if (u === 'SEBC' || u === 'SBC') return 'SEBC';
+  if (u === 'EWS') return 'EWS';
+  if (u === 'VJ' || u === 'VJ_DT' || u === 'DT/VJ' || u === 'VJ/DT') return 'VJ/DT';
+  if (u.includes('NT-B') || u.includes('NT 1') || u === 'NTB') return 'NT-B';
+  if (u.includes('NT-C') || u.includes('NT 2') || u === 'NTC') return 'NT-C';
+  if (u.includes('NT-D') || u.includes('NT 3') || u === 'NTD') return 'NT-D';
+  if (u.startsWith('NT')) return 'NT';
+  return raw; // fallback: show as-is
+}
+
 function AdminDashboard() {
   const [tab, setTab] = useState('overview');
   const { user } = useAuth();
@@ -421,7 +444,7 @@ function AdminDashboard() {
                       <td style={{ fontWeight: 600 }}>{allo.student?.applicationId}</td>
                       <td>{allo.student?.fullName}</td>
                       <td>{allo.branch?.name} ({allo.branch?.type})</td>
-                      <td>{CAT_LABELS[allo.seatCategory] || allo.seatCategory}</td>
+                      <td>{normalizeCat(allo.seatCategory)}</td>
                       <td>{allo.seatType === 'ladies' ? 'Ladies' : 'General'}</td>
                       <td>{allo.allocatedBy === 'auto' ? '🤖 Auto' : '👤 Manual'}</td>
                       <td><span className={`badge badge-${allo.status}`}>{allo.status}</span></td>
@@ -522,7 +545,7 @@ function AdminDashboard() {
                       <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{s.applicationId}</td>
                       <td>{s.fullName}</td>
                       <td style={{ fontWeight: 700 }}>{s.mhtCetPercentile}</td>
-                      <td>{CAT_LABELS[s.category] || s.category}</td>
+                      <td>{normalizeCat(s.category)}</td>
                       <td>{s.gender}</td>
                       <td>{s.studentType}</td>
                       <td><span className={`badge badge-${s.allocationStatus}`}>{s.allocationStatus}</span></td>
@@ -631,7 +654,7 @@ function AdminDashboard() {
                                   <span style={{ fontSize: '11px', opacity: isSel ? 0.8 : 0.5 }}>{s.applicationId}</span>
                                   <span style={{ opacity: 0.3 }}>·</span>
                                   <span style={{ fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#FFF0F0', color: isSel ? '#fff' : '#8B1A1A', border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #F5BBBB' }}>📊 {s.mhtCetPercentile}%ile</span>
-                                  <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#FFFBEB', color: isSel ? '#fff' : '#B45309', border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #FCD34D' }}>{CAT_LABELS[s.category]}</span>
+                                  <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#FFFBEB', color: isSel ? '#fff' : '#B45309', border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #FCD34D' }}>{normalizeCat(s.category)}</span>
                                   <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#F0F9FF', color: isSel ? '#fff' : '#0369A1', border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #BAE6FD' }}>{s.gender === 'Female' ? '♀' : '♂'} {s.gender}</span>
                                 </div>
                               </div>
@@ -663,7 +686,7 @@ function AdminDashboard() {
                       if (!s) return null;
                       return (
                         <div style={{ marginTop: '8px', padding: '10px 16px', background: 'linear-gradient(135deg,#8B1A1A,#B22222)', borderRadius: '6px', fontSize: '13px', color: '#fff', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          ✅ Selected: <strong>{s.fullName}</strong> · {s.mhtCetPercentile}%ile · {CAT_LABELS[s.category]} · {s.gender}
+                          ✅ Selected: <strong>{s.fullName}</strong> · {s.mhtCetPercentile}%ile · {normalizeCat(s.category)} · {s.gender}
                         </div>
                       );
                     })()}
@@ -779,7 +802,7 @@ function AdminDashboard() {
                       <option value="">-- Select any student --</option>
                       {students.map(s => (
                         <option key={s._id} value={s._id}>
-                          {s.applicationId} — {s.fullName} ({s.mhtCetPercentile}%ile, {CAT_LABELS[s.category]}, {s.gender})
+                          {s.applicationId} — {s.fullName} ({s.mhtCetPercentile}%ile, {normalizeCat(s.category)}, {s.gender})
                         </option>
                       ))}
                     </select>

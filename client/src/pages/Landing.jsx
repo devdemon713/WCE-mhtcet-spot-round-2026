@@ -9,7 +9,7 @@ import TeaBreakOverlay from '../components/animations/TeaBreakOverlay';
 import LunchBreakOverlay from '../components/animations/LunchBreakOverlay';
 import { playBreakBell, playNotificationSound, playUrgentSound } from '../components/animations/portalSounds';
 
-const youtubeVideoId = import.meta.env.VITE_YOUTUBE_VIDEO_ID || '1osWfayuAyg';
+const youtubeVideoId = import.meta.env.VITE_YOUTUBE_VIDEO_ID || 'e1628RDUFFs';
 
 function Landing() {
   const [branches, setBranches] = useState([]);
@@ -240,12 +240,12 @@ function Landing() {
           </div>
         </div>
         <div> */}
-        {/* Admission guidance video */}
+        {/* Live WCE Tilak Hall video */}
         <section className="video-section card" aria-labelledby="video-title">
           <div className="video-section-copy">
-            {/* <span className="video-eyebrow">Candidate guidance</span> */}
-            <h2 id="video-title">Explore Walchand College of Engineering</h2>
-            {/* <p>Click the link below to know more about Walchand College of Engineering</p> */}
+            <span className="video-eyebrow">📡 Live from Campus</span>
+            <h2 id="video-title">🎥 Watch Live — WCE Tilak Hall Spot Round</h2>
+            <p>Tune in to the live stream straight from the Tilak Hall — witness the spot round action as it happens! 🔥</p>
           </div>
           <div className="youtube-player">
             <iframe
