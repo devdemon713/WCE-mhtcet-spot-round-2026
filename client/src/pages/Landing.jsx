@@ -145,8 +145,8 @@ function Landing() {
                 {breakType === 'tea'
                   ? '☕ TEA BREAK IN PROGRESS — Please relax, we will resume shortly. ☕ TEA BREAK IN PROGRESS — Please relax, we will resume shortly.'
                   : breakType === 'lunch'
-                  ? '🍱 LUNCH BREAK IN PROGRESS — Enjoy your meal, the round will resume after lunch. 🍱 LUNCH BREAK IN PROGRESS — Enjoy your meal, the round will resume after lunch.'
-                  : (round.announcementText || `THIS FORM IS ONLY FOR STUDENTS APPLYING FOR 1ST YEAR ACAP / SPOT ROUND REGISTRATION - ${round.name}`)}
+                    ? '🍱 LUNCH BREAK IN PROGRESS — Enjoy your meal, the round will resume after lunch. 🍱 LUNCH BREAK IN PROGRESS — Enjoy your meal, the round will resume after lunch.'
+                    : (round.announcementText || `THIS FORM IS ONLY FOR STUDENTS APPLYING FOR 1ST YEAR ACAP / SPOT ROUND REGISTRATION - ${round.name}`)}
                 {' '}
               </span>
             </div>
@@ -155,8 +155,8 @@ function Landing() {
       )}
 
       <main className="main-content">
-          {/* Live Branch Vacancy Summary Chart */}
-          <BranchSummaryChart branches={filteredBranches} flashId={flashId} />
+        {/* Live Branch Vacancy Summary Chart */}
+        <BranchSummaryChart branches={filteredBranches} flashId={flashId} />
 
         {/* Instructions */}
         <div className="instructions-card">
@@ -212,9 +212,9 @@ function Landing() {
               onClick={() => setFilter('Unaided')}
             >Unaided</button>
           </div>
-          <Link to="/register" className="btn btn-primary">
-            Register for Spot Round →
-          </Link>
+          {/* <Link to="/register" className="btn btn-primary">
+          Register for Spot Round →
+        </Link> */}
         </div>
 
         {/* Seat Matrices */}
@@ -229,7 +229,7 @@ function Landing() {
 
 
         {/* Legend */}
-        <div className="card" style={{ marginTop: '20px' }}>
+        {/* <div className="card" style={{ marginTop: '20px' }}>
           <div className="card-body" style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.8' }}>
             <strong>F:</strong> Only For Female, <strong>K:</strong> Konkan Seats, <strong>HU:</strong> Home University,
             <strong> OHU:</strong> Other than Home University, <strong>Common Reserved:</strong> Combined Common for All Reserved Categories
@@ -239,13 +239,13 @@ function Landing() {
             <em>STATE CET CELL, Mumbai</em>
           </div>
         </div>
-        <div>
-           {/* Admission guidance video */}
+        <div> */}
+        {/* Admission guidance video */}
         <section className="video-section card" aria-labelledby="video-title">
           <div className="video-section-copy">
-            <span className="video-eyebrow">Candidate guidance</span>
-            <h2 id="video-title">Understand the spot round process</h2>
-            <p>Watch the latest admission guidance before completing your registration.</p>
+            {/* <span className="video-eyebrow">Candidate guidance</span> */}
+            <h2 id="video-title">Explore Walchand College of Engineering</h2>
+            {/* <p>Click the link below to know more about Walchand College of Engineering</p> */}
           </div>
           <div className="youtube-player">
             <iframe
@@ -256,7 +256,6 @@ function Landing() {
             />
           </div>
         </section>
-        </div>
       </main>
     </>
   );
