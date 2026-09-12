@@ -137,22 +137,31 @@ function Landing() {
       </div>
 
       {/* Round Status Banner */}
-      {round && (
-        <div className={`banner ${round.isDemo ? 'demo-banner' : ''} ${round.announcementEnabled === false ? 'banner-disabled' : ''} ${breakType ? `break-banner-${breakType}` : ''}`}>
-          {round.announcementEnabled !== false && (
-            <div className={`announcement-track announcement-${round.announcementDirection || 'ltr'}`}>
-              <span>
-                {breakType === 'tea'
-                  ? '☕ TEA BREAK IN PROGRESS — Please relax, we will resume shortly. ☕ TEA BREAK IN PROGRESS — Please relax, we will resume shortly.'
-                  : breakType === 'lunch'
-                    ? '🍱 LUNCH BREAK IN PROGRESS — Enjoy your meal, the round will resume after lunch. 🍱 LUNCH BREAK IN PROGRESS — Enjoy your meal, the round will resume after lunch.'
-                    : (round.announcementText || `THIS FORM IS ONLY FOR STUDENTS APPLYING FOR 1ST YEAR ACAP / SPOT ROUND REGISTRATION - ${round.name}`)}
-                {' '}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
+      {(() => {
+        if (!round) return null;
+        
+        const bannerText = breakType === 'tea'
+          ? '☕ TEA BREAK IN PROGRESS — Please relax, we will resume shortly. ☕ TEA BREAK IN PROGRESS — Please relax, we will resume shortly.'
+          : breakType === 'lunch'
+            ? '🍱 LUNCH BREAK IN PROGRESS — Enjoy your meal, the round will resume after lunch. 🍱 LUNCH BREAK IN PROGRESS — Enjoy your meal, the round will resume after lunch.'
+            : (round.announcementText || `THIS FORM IS ONLY FOR STUDENTS APPLYING FOR 1ST YEAR ACAP / SPOT ROUND REGISTRATION - ${round.name}`);
+        
+        // Base 18s duration + 0.15s per character to slow down if text increases
+        const animationDuration = `${Math.max(18, bannerText.length * 0.15)}s`;
+
+        return (
+          <div className={`banner ${round.isDemo ? 'demo-banner' : ''} ${round.announcementEnabled === false ? 'banner-disabled' : ''} ${breakType ? `break-banner-${breakType}` : ''}`}>
+            {round.announcementEnabled !== false && (
+              <div 
+                className={`announcement-track announcement-${round.announcementDirection || 'ltr'}`}
+                style={{ animationDuration }}
+              >
+                <span>{bannerText} </span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <main className="main-content">
         {/* Live Branch Vacancy Summary Chart */}
