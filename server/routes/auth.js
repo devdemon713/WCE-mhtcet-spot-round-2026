@@ -60,7 +60,7 @@ router.post('/register', [
   body('mathPercentile').optional().isNumeric(),
   body('physicsPercentile').optional().isNumeric(),
   body('chemistryPercentile').optional().isNumeric(),
-  body('wceMeritNumber').optional().isNumeric(),
+  body('wceMeritNumber').optional().isString().trim(),
   body('stateMeritNumber').optional().isNumeric(),
   body('hscPercentage').optional().isNumeric()
 ], async (req, res) => {

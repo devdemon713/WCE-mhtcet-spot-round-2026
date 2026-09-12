@@ -24,7 +24,7 @@ router.get('/', auth, adminOnly, async (req, res) => {
     const students = await User.find(filter)
       .select('-password')
       .populate('allocatedBranch')
-      .sort({ mhtCetPercentile: -1 });
+      .sort({ wceMeritNumber: 1, mhtCetPercentile: -1 });
 
     res.json(students);
   } catch (error) {

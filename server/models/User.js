@@ -40,6 +40,15 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  wceMeritNumber: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  stateMeritNumber: {
+    type: Number,
+    default: null
+  },
   category: {
     type: String,
     default: 'OPEN'

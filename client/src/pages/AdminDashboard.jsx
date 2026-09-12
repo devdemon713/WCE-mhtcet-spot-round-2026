@@ -65,11 +65,13 @@ function AdminDashboard() {
 
   // Manual student picker filters
   const [manualStudentSearch, setManualStudentSearch] = useState('');
+  const [manualSearchField, setManualSearchField] = useState('name');
   const [manualCatFilter, setManualCatFilter] = useState('all');
 
   // Branch Upgrade state
   const [upgradeStudent, setUpgradeStudent] = useState('');
   const [upgradeStudentSearch, setUpgradeStudentSearch] = useState('');
+  const [upgradeSearchField, setUpgradeSearchField] = useState('name');
   const [upgradeFromBranch, setUpgradeFromBranch] = useState('');
   const [upgradeFromCat, setUpgradeFromCat] = useState('OPEN');
   const [upgradeFromType, setUpgradeFromType] = useState('general');
@@ -361,26 +363,42 @@ function AdminDashboard() {
 
   const pendingStudents = students.filter(s => s.allocationStatus === 'pending');
 
-  // Get current round ID for skip filtering
+  // Get current round ID for skip status checking
   const currentRoundId = round?._id;
 
-  // Pending students filtered by search + category + NOT skipped in current round
-  // Sorted high→low percentile (MHT-CET merit rule)
-  const filteredPendingStudents = pendingStudents
+  // Manual allocation students list: Display ALL students (pending, allocated, skipped)
+  // Sorted by wceMeritNumber ascending (1, 2, 3...), fallback to MHT-CET percentile descending
+  const filteredManualStudents = students
     .filter(s => {
-      // Filter out students skipped in current round
-      if (currentRoundId && s.skippedInRounds && s.skippedInRounds.includes(currentRoundId)) return false;
       if (manualCatFilter !== 'all' && normalizeCat(s.category) !== normalizeCat(manualCatFilter)) return false;
       if (manualStudentSearch) {
         const term = manualStudentSearch.toLowerCase();
         const name = (s.fullName || '').toLowerCase();
         const appId = (s.applicationId || '').toLowerCase();
-        const phone = (s.phone || '').toLowerCase();
-        return name.includes(term) || appId.includes(term) || phone.includes(term);
+        const meritStr = s.wceMeritNumber ? String(s.wceMeritNumber).toLowerCase() : '';
+        const searchValue = manualSearchField === 'applicationId'
+          ? appId
+          : manualSearchField === 'meritNumber'
+            ? meritStr
+            : name;
+        return searchValue.includes(term);
       }
       return true;
     })
-    .sort((a, b) => (b.mhtCetPercentile || 0) - (a.mhtCetPercentile || 0));
+    .sort((a, b) => {
+      const meritA = (a.wceMeritNumber !== null && a.wceMeritNumber !== undefined && a.wceMeritNumber !== '' && Number(a.wceMeritNumber) > 0) ? Number(a.wceMeritNumber) : null;
+      const meritB = (b.wceMeritNumber !== null && b.wceMeritNumber !== undefined && b.wceMeritNumber !== '' && Number(b.wceMeritNumber) > 0) ? Number(b.wceMeritNumber) : null;
+
+      if (meritA !== null && meritB !== null) {
+        if (meritA !== meritB) return meritA - meritB;
+      } else if (meritA !== null) {
+        return -1;
+      } else if (meritB !== null) {
+        return 1;
+      }
+
+      return (b.mhtCetPercentile || 0) - (a.mhtCetPercentile || 0);
+    });
 
   const totalVacant = branches.reduce((sum, b) => sum + (b.totalVacant || 0), 0);
 
@@ -635,7 +653,7 @@ function AdminDashboard() {
             <div className="card">
               <div className="card-header">
                 <h2>Manual Allocation</h2>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{pendingStudents.length} pending students</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{filteredManualStudents.length} students ({pendingStudents.length} pending)</span>
               </div>
               <div className="card-body">
                 <div className="form-grid">
@@ -644,10 +662,29 @@ function AdminDashboard() {
                     <label>Select Student <span className="required">*</span></label>
 
                     {/* Filters */}
+                    <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px', fontSize: '12px' }}>
+                      <span style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>Search by:</span>
+                      {[
+                        { value: 'name', label: 'Name' },
+                        { value: 'applicationId', label: 'Application ID' },
+                        { value: 'meritNumber', label: 'Merit No.' }
+                      ].map(option => (
+                        <label key={option.value} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', cursor: 'pointer', margin: 0 }}>
+                          <input
+                            type="radio"
+                            name="manual-search-field"
+                            value={option.value}
+                            checked={manualSearchField === option.value}
+                            onChange={e => { setManualSearchField(e.target.value); setManualStudentSearch(''); setSelectedStudent(''); }}
+                          />
+                          {option.label}
+                        </label>
+                      ))}
+                    </div>
                     <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
                       <input
                         type="text"
-                        placeholder="🔍 Search name or application ID…"
+                        placeholder={`🔍 Search by ${manualSearchField === 'applicationId' ? 'application ID' : manualSearchField === 'meritNumber' ? 'merit number' : 'name'}...`}
                         value={manualStudentSearch}
                         onChange={e => { setManualStudentSearch(e.target.value); setSelectedStudent(''); }}
                         style={{ flex: 2, minWidth: '160px', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontFamily: 'inherit' }}
@@ -665,14 +702,17 @@ function AdminDashboard() {
                     </div>
 
                     {/* Student list */}
-                    <div style={{ border: '1px solid #8B1A1A', borderRadius: '8px', maxHeight: '280px', overflowY: 'auto', background: '#fff', boxShadow: '0 2px 8px rgba(139,26,26,0.08)' }}>
-                      {filteredPendingStudents.length === 0 ? (
+                    <div style={{ border: '1px solid #8B1A1A', borderRadius: '8px', maxHeight: '320px', overflowY: 'auto', background: '#fff', boxShadow: '0 2px 8px rgba(139,26,26,0.08)' }}>
+                      {filteredManualStudents.length === 0 ? (
                         <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-                          No pending students match the filter
+                          No students match the filter
                         </div>
                       ) : (
-                        filteredPendingStudents.map((s, idx) => {
+                        filteredManualStudents.map((s, idx) => {
                           const isSel = selectedStudent === s._id;
+                          const isAllocated = s.allocationStatus === 'allocated' || s.allocationStatus === 'confirmed';
+                          const isSkipped = currentRoundId && s.skippedInRounds && s.skippedInRounds.includes(currentRoundId);
+
                           return (
                             <div
                               key={s._id}
@@ -680,29 +720,52 @@ function AdminDashboard() {
                                 display: 'flex', alignItems: 'center', gap: '12px',
                                 padding: '12px 16px',
                                 borderBottom: '1px solid rgba(139,26,26,0.12)',
-                                background: isSel ? 'linear-gradient(135deg,#8B1A1A,#B22222)' : idx % 2 === 0 ? '#fff' : '#FFF8F8',
+                                background: isSel ? 'linear-gradient(135deg,#8B1A1A,#B22222)' : isAllocated ? '#F0FDF4' : idx % 2 === 0 ? '#fff' : '#FFF8F8',
                                 color: isSel ? '#fff' : 'var(--text-primary)',
-                                transition: 'all 0.18s ease'
+                                transition: 'all 0.18s ease',
+                                opacity: isSkipped && !isSel ? 0.75 : 1
                               }}
                             >
-                              {/* Rank circle */}
+                              {/* Rank circle / WCE Merit Number */}
                               <span
                                 onClick={() => setSelectedStudent(isSel ? '' : s._id)}
                                 style={{
-                                  minWidth: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer',
-                                  background: isSel ? 'rgba(255,255,255,0.2)' : '#8B1A1A',
+                                  minWidth: '36px', height: '32px', borderRadius: '16px', cursor: 'pointer', padding: '0 6px',
+                                  background: isSel ? 'rgba(255,255,255,0.2)' : isAllocated ? '#16A34A' : '#8B1A1A',
                                   color: '#fff', fontSize: '11px', fontWeight: 800,
                                   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                                }}>{idx + 1}</span>
+                                }}
+                                title={s.wceMeritNumber ? `WCE Merit #${s.wceMeritNumber}` : `Rank #${idx + 1}`}
+                              >
+                                {s.wceMeritNumber ? `#${s.wceMeritNumber}` : idx + 1}
+                              </span>
 
                               {/* Name + AppID + badges */}
                               <div
                                 onClick={() => setSelectedStudent(isSel ? '' : s._id)}
                                 style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
                               >
-                                <div style={{ fontWeight: 700, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.fullName}</div>
+                                <div style={{ fontWeight: 700, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span>{s.fullName}</span>
+                                  {isAllocated && (
+                                    <span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: '4px', background: isSel ? 'rgba(255,255,255,0.3)' : '#DCFCE7', color: isSel ? '#fff' : '#15803D' }}>
+                                      ✅ Allocated: {s.allocatedBranch?.name || s.allocatedBranch?.code || 'Seat Secured'}
+                                    </span>
+                                  )}
+                                  {isSkipped && (
+                                    <span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: '4px', background: isSel ? 'rgba(255,255,255,0.3)' : '#FEF3C7', color: isSel ? '#fff' : '#B45309' }}>
+                                      ⏭ Skipped
+                                    </span>
+                                  )}
+                                </div>
                                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginTop: '4px' }}>
-                                  <span style={{ fontSize: '11px', opacity: isSel ? 0.8 : 0.5 }}>{s.applicationId}</span>
+                                  <span style={{ fontSize: '11px', opacity: isSel ? 0.8 : 0.6 }}>{s.applicationId}</span>
+                                  {s.wceMeritNumber && (
+                                    <>
+                                      <span style={{ opacity: 0.3 }}>·</span>
+                                      <span style={{ fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#EFF6FF', color: isSel ? '#fff' : '#1D4ED8', border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #BFDBFE' }}>🏆 Merit #{s.wceMeritNumber}</span>
+                                    </>
+                                  )}
                                   <span style={{ opacity: 0.3 }}>·</span>
                                   <span style={{ fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#FFF0F0', color: isSel ? '#fff' : '#8B1A1A', border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #F5BBBB' }}>📊 {s.mhtCetPercentile}%ile</span>
                                   <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#FFFBEB', color: isSel ? '#fff' : '#B45309', border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #FCD34D' }}>{normalizeCat(s.category)}</span>
@@ -710,21 +773,38 @@ function AdminDashboard() {
                                 </div>
                               </div>
 
-                              {/* Skip button */}
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleSkipStudent(s._id, s.fullName); }}
-                                title="Skip this student for current round"
-                                style={{
-                                  padding: '4px 12px', fontSize: '11px', fontWeight: 700,
-                                  borderRadius: '6px', border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #E5A300',
-                                  background: isSel ? 'rgba(255,255,255,0.15)' : '#FFFBEB',
-                                  color: isSel ? '#fff' : '#92400E', cursor: 'pointer',
-                                  whiteSpace: 'nowrap', flexShrink: 0,
-                                  transition: 'all 0.15s ease'
-                                }}
-                              >
-                                ⏭ Skip
-                              </button>
+                              {/* Skip / Unskip button */}
+                              {isSkipped ? (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleUnskipStudent(s._id, s.fullName); }}
+                                  title="Unskip this student for current round"
+                                  style={{
+                                    padding: '4px 12px', fontSize: '11px', fontWeight: 700,
+                                    borderRadius: '6px', border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #059669',
+                                    background: isSel ? 'rgba(255,255,255,0.15)' : '#ECFDF5',
+                                    color: isSel ? '#fff' : '#047857', cursor: 'pointer',
+                                    whiteSpace: 'nowrap', flexShrink: 0,
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                >
+                                  ↩ Unskip
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleSkipStudent(s._id, s.fullName); }}
+                                  title="Skip this student for current round"
+                                  style={{
+                                    padding: '4px 12px', fontSize: '11px', fontWeight: 700,
+                                    borderRadius: '6px', border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #E5A300',
+                                    background: isSel ? 'rgba(255,255,255,0.15)' : '#FFFBEB',
+                                    color: isSel ? '#fff' : '#92400E', cursor: 'pointer',
+                                    whiteSpace: 'nowrap', flexShrink: 0,
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                >
+                                  ⏭ Skip
+                                </button>
+                              )}
                             </div>
                           );
                         })
@@ -735,9 +815,17 @@ function AdminDashboard() {
                     {selectedStudent && (() => {
                       const s = students.find(x => x._id === selectedStudent);
                       if (!s) return null;
+                      const isAllocated = s.allocationStatus === 'allocated' || s.allocationStatus === 'confirmed';
                       return (
-                        <div style={{ marginTop: '8px', padding: '10px 16px', background: 'linear-gradient(135deg,#8B1A1A,#B22222)', borderRadius: '6px', fontSize: '13px', color: '#fff', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          ✅ Selected: <strong>{s.fullName}</strong> · {s.mhtCetPercentile}%ile · {normalizeCat(s.category)} · {s.gender}
+                        <div style={{ marginTop: '8px', padding: '10px 16px', background: isAllocated ? 'linear-gradient(135deg, #15803D, #166534)' : 'linear-gradient(135deg,#8B1A1A,#B22222)', borderRadius: '6px', fontSize: '13px', color: '#fff', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          ✅ Selected: <strong>{s.fullName}</strong>
+                          {s.wceMeritNumber ? ` · Merit #${s.wceMeritNumber}` : ''}
+                          · {s.mhtCetPercentile}%ile · {normalizeCat(s.category)} · {s.gender}
+                          {isAllocated && (
+                            <span style={{ background: 'rgba(255,255,255,0.25)', padding: '2px 8px', borderRadius: '4px', fontSize: '12px' }}>
+                              Currently Allocated: {s.allocatedBranch?.name || 'Active Seat'}
+                            </span>
+                          )}
                         </div>
                       );
                     })()}
@@ -849,9 +937,28 @@ function AdminDashboard() {
                   {/* Student Selector with Search */}
                   <div className="form-group full-width">
                     <label>Select Student <span className="required">*</span></label>
+                    <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px', fontSize: '12px' }}>
+                      <span style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>Search by:</span>
+                      {[
+                        { value: 'name', label: 'Name' },
+                        { value: 'applicationId', label: 'Application ID' },
+                        { value: 'meritNumber', label: 'Merit No.' }
+                      ].map(option => (
+                        <label key={option.value} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', cursor: 'pointer', margin: 0 }}>
+                          <input
+                            type="radio"
+                            name="upgrade-search-field"
+                            value={option.value}
+                            checked={upgradeSearchField === option.value}
+                            onChange={e => { setUpgradeSearchField(e.target.value); setUpgradeStudentSearch(''); setUpgradeStudent(''); }}
+                          />
+                          {option.label}
+                        </label>
+                      ))}
+                    </div>
                     <input
                       type="text"
-                      placeholder="🔍 Search by name, application ID, or phone…"
+                      placeholder={`🔍 Search by ${upgradeSearchField === 'applicationId' ? 'application ID' : upgradeSearchField === 'meritNumber' ? 'merit number' : 'name'}...`}
                       value={upgradeStudentSearch}
                       onChange={e => { setUpgradeStudentSearch(e.target.value); setUpgradeStudent(''); }}
                       style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontFamily: 'inherit', marginBottom: '8px' }}
@@ -861,9 +968,15 @@ function AdminDashboard() {
                         const filtered = students.filter(s => {
                           if (!upgradeStudentSearch) return false;
                           const term = upgradeStudentSearch.toLowerCase();
-                          return (s.fullName || '').toLowerCase().includes(term) ||
-                            (s.applicationId || '').toLowerCase().includes(term) ||
-                            (s.phone || '').toLowerCase().includes(term);
+                          const name = (s.fullName || '').toLowerCase();
+                          const applicationId = (s.applicationId || '').toLowerCase();
+                          const meritNumber = s.wceMeritNumber ? String(s.wceMeritNumber).toLowerCase() : '';
+                          const searchValue = upgradeSearchField === 'applicationId'
+                            ? applicationId
+                            : upgradeSearchField === 'meritNumber'
+                              ? meritNumber
+                              : name;
+                          return searchValue.includes(term);
                         }).slice(0, 50);
                         if (!upgradeStudentSearch) return (
                           <div style={{ padding: '18px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
@@ -894,6 +1007,12 @@ function AdminDashboard() {
                                 <div style={{ fontWeight: 700, fontSize: '13px' }}>{s.fullName}</div>
                                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginTop: '3px' }}>
                                   <span style={{ fontSize: '11px', opacity: isSel ? 0.8 : 0.5 }}>{s.applicationId}</span>
+                                  {s.wceMeritNumber && (
+                                    <>
+                                      <span style={{ opacity: 0.3 }}>·</span>
+                                      <span style={{ fontSize: '11px', fontWeight: 800, padding: '1px 7px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#EFF6FF', color: isSel ? '#fff' : '#1D4ED8', border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #BFDBFE' }}>🏆 Merit #{s.wceMeritNumber}</span>
+                                    </>
+                                  )}
                                   <span style={{ opacity: 0.3 }}>·</span>
                                   <span style={{ fontSize: '11px', fontWeight: 800, padding: '1px 7px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#FFF0F0', color: isSel ? '#fff' : '#8B1A1A' }}>📊 {s.mhtCetPercentile}%ile</span>
                                   <span style={{ fontSize: '11px', fontWeight: 700, padding: '1px 7px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#FFFBEB', color: isSel ? '#fff' : '#B45309' }}>{normalizeCat(s.category)}</span>

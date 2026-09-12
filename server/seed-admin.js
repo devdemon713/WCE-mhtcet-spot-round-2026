@@ -23,7 +23,7 @@ async function seedAdmin() {
     password:            { type: String },
     phone:               { type: String },
     photo:               { type: String, default: null },
-    wceMeritNumber:      { type: Number, default: null },
+    wceMeritNumber:      { type: String, trim: true, default: null },
     stateMeritNumber:    { type: Number, default: null },
     category:            { type: String, default: 'OPEN' },
     gender:              { type: String },

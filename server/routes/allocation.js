@@ -7,12 +7,13 @@ const Round = require('../models/Round');
 const { auth, adminOnly } = require('../middleware/auth');
 
 // Helper: Push allocation news into the announcement ticker in real-time
-async function pushAllocationAnnouncement(io, studentName, branchName, branchType, category, seatType) {
+async function pushAllocationAnnouncement(io, studentName, meritNumber, branchName, branchType, category, seatType) {
   try {
     const round = await Round.findOne().sort({ createdAt: -1 });
     if (!round) return;
     const typeLabel = seatType === 'ladies' ? '(Ladies)' : '';
-    const newEntry = `🎉 ${studentName} secured ${branchName} (${branchType}) — ${category} ${typeLabel} seat`;
+    const meritLabel = meritNumber ? ` (Merit No. ${String(meritNumber)})` : '';
+    const newEntry = `🎉 ${studentName}${meritLabel} secured ${branchName} (${branchType}) — ${category} ${typeLabel} seat`;
     // Keep existing text, prepend new entry with separator
     const existing = round.announcementText || '';
     // Extract the base static text (everything after the last '|' separator or full text)
@@ -150,6 +151,7 @@ router.post('/upgrade', auth, adminOnly, async (req, res) => {
     io.emit('seat-update', { branchId: updatedFromBranch._id, branch: updatedFromBranch.toJSON(), updatedAt: new Date() });
     io.emit('seat-update', { branchId: updatedToBranch._id,   branch: updatedToBranch.toJSON(),   updatedAt: new Date() });
     io.emit('allocation-update', { studentId: student._id, updatedAt: new Date() });
+    await pushAllocationAnnouncement(io, student.fullName, student.wceMeritNumber, toBranch.name, toBranch.type, toSeatCategory, toSeatType);
 
     console.log(`🔄 Branch Upgrade: ${student.applicationId} | ${fromBranch.name} → ${toBranch.name}`);
 
@@ -181,8 +183,25 @@ router.post('/manual', auth, adminOnly, async (req, res) => {
 
     const student = await User.findById(studentId);
     if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    // If student is already allocated, return previous seat to pool first
     if (student.allocationStatus === 'allocated' || student.allocationStatus === 'confirmed') {
-      return res.status(400).json({ message: 'Student already has an active allocation' });
+      if (student.allocatedBranch) {
+        try {
+          await incrementSeat(
+            student.allocatedBranch,
+            student.allocatedSeatPool || 'stateLevel',
+            student.allocatedSeatCategory || student.category,
+            student.allocatedSeatType || 'general'
+          );
+        } catch (e) {
+          console.warn('Could not return previous seat:', e.message);
+        }
+      }
+      await Allocation.updateMany(
+        { student: studentId, status: { $ne: 'cancelled' } },
+        { status: 'cancelled' }
+      );
     }
 
     const pool = seatPool || 'stateLevel';
@@ -211,7 +230,7 @@ router.post('/manual', auth, adminOnly, async (req, res) => {
     io.emit('seat-update', { branchId: branch._id, branch: branch.toJSON(), updatedAt: new Date() });
     io.emit('allocation-update', { studentId: student._id, updatedAt: new Date() });
     // Auto-push to announcement ticker
-    await pushAllocationAnnouncement(io, student.fullName, branch.name, branch.type, seatCategory, seatType);
+    await pushAllocationAnnouncement(io, student.fullName, student.wceMeritNumber, branch.name, branch.type, seatCategory, seatType);
 
     const populated = await Allocation.findById(allocation._id)
       .populate('student', '-password')

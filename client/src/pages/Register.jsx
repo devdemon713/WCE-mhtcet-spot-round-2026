@@ -99,7 +99,7 @@ function Register() {
       delete submitData.confirmPassword;
       // Convert numeric strings
       const numFields = [
-        'wceMeritNumber', 'stateMeritNumber',
+        'stateMeritNumber',
         'mhtCetPercentile', 'mathPercentile', 'physicsPercentile',
         'chemistryPercentile', 'hscPercentage'
       ];
@@ -186,9 +186,9 @@ function Register() {
                   <div className="form-group">
                     <label htmlFor="wceMeritNumber">WCE Merit Number</label>
                     <input
-                      id="wceMeritNumber" name="wceMeritNumber" type="number"
+                      id="wceMeritNumber" name="wceMeritNumber" type="text"
                       value={formData.wceMeritNumber} onChange={handleChange}
-                      placeholder="e.g. 1" style={inputStyle}
+                      placeholder="e.g. 254A" style={inputStyle}
                     />
                   </div>
                   <div className="form-group">
