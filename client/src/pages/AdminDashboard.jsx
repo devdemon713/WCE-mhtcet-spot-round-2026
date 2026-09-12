@@ -319,6 +319,46 @@ function AdminDashboard() {
     return true;
   });
 
+  const handleExportStudents = () => {
+    const headers = [
+      'Application ID', 'Full Name', 'Email', 'Phone', 'MHT-CET Percentile',
+      'MHT-CET Score', 'JEE Main Percentile', 'Category', 'Gender',
+      'Student Type', 'Status', 'Allocated Branch', 'Branch Type'
+    ];
+    const escapeCsvValue = (value) => {
+      const text = value == null ? '' : String(value);
+      return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
+    const rows = filteredStudents.map(student => [
+      student.applicationId,
+      student.fullName,
+      student.email,
+      student.phone,
+      student.mhtCetPercentile,
+      student.mhtCetScore,
+      student.jeeMainPercentile,
+      normalizeCat(student.category),
+      student.gender,
+      student.studentType,
+      student.allocationStatus,
+      student.allocatedBranch?.name || '',
+      student.allocatedBranch?.type || ''
+    ]);
+    const csv = [headers, ...rows]
+      .map(row => row.map(escapeCsvValue).join(','))
+      .join('\n');
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `students-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showMsg(`✅ Exported ${filteredStudents.length} students to Excel-compatible CSV.`);
+  };
+
   const pendingStudents = students.filter(s => s.allocationStatus === 'pending');
 
   // Get current round ID for skip filtering
@@ -523,6 +563,15 @@ function AdminDashboard() {
             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
               {filteredStudents.length} students
             </span>
+            <button
+              className="btn btn-success btn-sm"
+              onClick={handleExportStudents}
+              disabled={filteredStudents.length === 0}
+              style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+              title="Download the filtered student list as an Excel-compatible file"
+            >
+              📥 Export Excel
+            </button>
           </div>
 
           <div className="card">
