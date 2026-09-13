@@ -1,5 +1,5 @@
-# 📋 MHT-CET Spot Round – Automatic Seat Allocation Rules
-### WCE Sangli Spot Round Portal
+# 📋 MHT-CET ACAP Round – Automatic Seat Allocation Rules
+### WCE Sangli ACAP Round Portal
 ### ✅ Verified against State CET Cell, Maharashtra official guidelines
 
 ---
@@ -11,9 +11,9 @@
 
 ---
 
-## 🔑 What is Spot Round / ACAP?
+## 🔑 What is ACAP Round?
 
-- Spot Round = **Institute-Level Round** conducted **after all CAP rounds** are done
+- ACAP Round = **Institute-Level Round** conducted **after all CAP rounds** are done
 - Purpose: Fill seats that remain **vacant after CAP Rounds 1, 2, 3**
 - Admissions are made **strictly on inter-se merit** (MHT-CET percentile)
 - College prepares a **category-wise merit list** and calls students physically
@@ -124,7 +124,7 @@ OMS candidates → Treated as OPEN category ONLY
 
 > ⚠️ **SPECIAL CASE — Must be handled manually by Admin**
 
-When a student who is **already admitted at WCE Sangli** in a lower-preference branch wants to upgrade to a better branch (e.g., Mechanical → CSE) during the Spot Round:
+When a student who is **already admitted at WCE Sangli** in a lower-preference branch wants to upgrade to a better branch (e.g., Mechanical → CSE) during the ACAP Round:
 
 **Rule:**
 ```
@@ -261,7 +261,7 @@ EWS Seats: 0     TFWS Choice Code: ...  TFWS Seats: 0
 | **Domicile verification** | Not automated — admin verifies physically |
 | **SEBC legal status** | Admin must check current year's official seat matrix |
 | **EWS supernumerary** | In real CAP, EWS seats are over and above SI — portal currently treats as regular row |
-| **Candidate physical presence** | Spot round requires physical reporting to college — portal handles digital part only |
+| **Candidate physical presence** | ACAP round requires physical reporting to college — portal handles digital part only |
 | **Daily reporting to CET Cell** | College must report daily admission status to State CET Cell |
 
 ---
@@ -302,5 +302,5 @@ Backend  → http://localhost:5000
 ```
 
 ---
-*WCE Sangli Spot Round Portal — Based on State CET Cell, Maharashtra Rules 2024-25*
+*WCE Sangli ACAP Round Portal — Based on State CET Cell, Maharashtra Rules 2024-25*
 *Always verify with the official Information Brochure for the current academic year*

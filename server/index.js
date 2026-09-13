@@ -36,7 +36,7 @@ app.use('/api/round', roundRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'WCE Spot Round Server Running' });
+  res.json({ status: 'ok', message: 'WCE ACAP Round Server Running' });
 });
 
 // ── ONE-TIME Admin Seed ──────────────────────────────────────────────────────
@@ -99,7 +99,7 @@ mongoose.connect(MONGO_URI)
   .then(() => {
     console.log('✅ MongoDB connected successfully');
     server.listen(PORT, () => {
-      console.log(`🚀 WCE Spot Round Server running on port ${PORT}`);
+      console.log(`🚀 WCE ACAP Round Server running on port ${PORT}`);
     });
   })
   .catch(err => {

@@ -71,7 +71,7 @@ async function incrementSeat(branchId, seatPool, seatCategory, seatType) {
 }
 
 // @route   POST /api/allocation/upgrade
-// @desc    Branch Upgrade — student moves from CAP-allotted branch to a better spot-round branch.
+// @desc    Branch Upgrade — student moves from CAP-allotted branch to a better ACAP round branch.
 //          FROM branch seat → +1 (returned to pool, visible live)
 //          TO   branch seat → -1 (new allocation)
 router.post('/upgrade', auth, adminOnly, async (req, res) => {

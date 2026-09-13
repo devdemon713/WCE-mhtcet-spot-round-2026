@@ -1,5 +1,5 @@
 /**
- * portalSounds.js — Web Audio API sound effects for the WCE Spot Round Portal.
+ * portalSounds.js — Web Audio API sound effects for the WCE ACAP Round Portal.
  * 
  * No external audio files needed. All sounds are synthesized programmatically.
  * 

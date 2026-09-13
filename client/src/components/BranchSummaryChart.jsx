@@ -78,7 +78,7 @@ function BranchSummaryChart({ branches, flashId }) {
                 <span style={{
                   marginLeft: '14px', fontSize: '11px', color: '#666', fontWeight: 400
                 }}>
-                  Government-Aided Autonomous &nbsp;|&nbsp; State CET Cell — Spot Round Vacancy
+                  Government-Aided Autonomous &nbsp;|&nbsp; State CET Cell — ACAP Round Vacancy
                 </span>
               </td>
             </tr>

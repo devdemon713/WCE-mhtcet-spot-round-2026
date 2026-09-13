@@ -1,7 +1,7 @@
 {
   "name": "wce-spot-round-server",
   "version": "1.0.0",
-  "description": "WCE Sangli MHT-CET Spot Round Admission Portal - Backend",
+  "description": "WCE Sangli MHT-CET ACAP Round Admission Portal - Backend",
   "main": "index.js",
   "scripts": {
     "dev": "node --watch index.js",
