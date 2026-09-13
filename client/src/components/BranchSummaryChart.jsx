@@ -1,20 +1,13 @@
 import React from 'react';
 
 const CATEGORIES = ['OPEN', 'SC', 'ST', 'VJ_DT', 'NTB', 'NTC', 'NTD', 'OBC', 'SEBC'];
-const CAT_LABELS = {
-  OPEN: 'OPEN', SC: 'SC', ST: 'ST', VJ_DT: 'VJ/DT',
-  NTB: 'NTB', NTC: 'NTC', NTD: 'NTD', OBC: 'OBC', SEBC: 'SEBC'
-};
 
-function getG(branch, cat) { return branch.stateLevel?.[cat]?.general || 0; }
-function getL(branch, cat) { return branch.stateLevel?.[cat]?.ladies  || 0; }
-function getCatTotal(branch, cat) { return getG(branch, cat) + getL(branch, cat); }
-function getRowTotal(branch) { return CATEGORIES.reduce((s, c) => s + getCatTotal(branch, c), 0); }
 function getPwdTotal(branch) {
   return CATEGORIES.reduce((s, c) =>
     s + (branch.pwd?.[c]?.general || 0) + (branch.pwd?.[c]?.ladies || 0), 0
   ) + (branch.pwdCommonReserved || 0);
 }
+
 function getDefTotal(branch) {
   return CATEGORIES.reduce((s, c) =>
     s + (branch.def?.[c]?.general || 0) + (branch.def?.[c]?.ladies || 0), 0
@@ -26,14 +19,8 @@ function BranchSummaryChart({ branches, flashId }) {
 
   const grandTotal = branches.reduce((s, b) => s + (b.totalVacant || 0), 0);
 
-  // Grand total per category G / L
-  const catGrandG = CATEGORIES.map(cat => branches.reduce((s, b) => s + getG(b, cat), 0));
-  const catGrandL = CATEGORIES.map(cat => branches.reduce((s, b) => s + getL(b, cat), 0));
-  const catGrandGL = CATEGORIES.map((_, i) => catGrandG[i] + catGrandL[i]);
-  const grandStateTotal = catGrandGL.reduce((s, v) => s + v, 0);
-
   return (
-    <section aria-labelledby="branch-chart-title" style={{ marginBottom: '24px' }}>
+    <section aria-labelledby="branch-chart-title" style={{ marginBottom: '24px', maxWidth: '880px', margin: '0 auto 24px' }}>
       {/* Header bar */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -43,9 +30,6 @@ function BranchSummaryChart({ branches, flashId }) {
           <h2 id="branch-chart-title" style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
             📊 Live Vacancy Summary — All Branches
           </h2>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
-            Updates in real-time as admin changes seat counts
-          </p>
         </div>
         <div style={{
           background: '#FFFF00', color: '#000', fontWeight: 800, fontSize: '13px',
@@ -62,14 +46,20 @@ function BranchSummaryChart({ branches, flashId }) {
         boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
       }}>
         <table style={{
-          width: '100%', borderCollapse: 'collapse', fontSize: '11px',
-          background: '#fff', minWidth: `${340 + CATEGORIES.length * 54}px`
+          width: '100%', borderCollapse: 'collapse', fontSize: '12px',
+          background: '#fff', tableLayout: 'fixed'
         }}>
+          <colgroup>
+            <col style={{ width: '38px' }} />
+            <col />
+            <col style={{ width: '105px' }} />
+            <col style={{ width: '105px' }} />
+          </colgroup>
           <thead>
             {/* College header */}
             <tr>
-              <td colSpan={4 + CATEGORIES.length * 2 + 2} style={{
-                background: '#fff', padding: '8px 12px',
+              <td colSpan={4} style={{
+                background: '#fff', padding: '10px 14px',
                 borderBottom: '2px solid #8B1A1A', fontSize: '13px'
               }}>
                 <span style={{ fontWeight: 800, color: '#8B1A1A' }}>
@@ -83,36 +73,18 @@ function BranchSummaryChart({ branches, flashId }) {
               </td>
             </tr>
 
-            {/* Category headers (colspan=2 each for G / L) */}
+            {/* Column headers */}
             <tr style={{ background: '#F0F0F0' }}>
-              <th style={th} rowSpan={2}>#</th>
-              <th style={{ ...th, textAlign: 'left', minWidth: '120px', maxWidth: '140px' }} rowSpan={2}>Branch / Course</th>
-              <th style={{ ...th, minWidth: '55px', maxWidth: '65px' }} rowSpan={2}>Type</th>
-              <th style={{ ...th, minWidth: '36px' }} rowSpan={2}>SI</th>
-              {CATEGORIES.map(cat => (
-                <th key={cat} style={{ ...th, borderBottom: '1px solid #CCC' }} colSpan={2}>
-                  {CAT_LABELS[cat]}
-                </th>
-              ))}
-              <th style={{ ...th, background: '#FFF9E6', minWidth: '52px' }} rowSpan={2}>TOTAL<br />(G+L)</th>
-              <th style={{ ...th, background: '#FFFF00', color: '#000', minWidth: '70px', fontSize: '13px' }} rowSpan={2}>VACANT</th>
-            </tr>
-
-            {/* G / L sub-headers */}
-            <tr style={{ background: '#F8F8F8' }}>
-              {CATEGORIES.map(cat => (
-                <React.Fragment key={cat}>
-                  <th style={{ ...th, color: '#555', fontSize: '10px', fontWeight: 700 }}>G</th>
-                  <th style={{ ...th, color: '#D97706', fontSize: '10px', fontWeight: 700 }}>L</th>
-                </React.Fragment>
-              ))}
+              <th style={{ ...th, width: '38px', padding: '8px 4px' }}>#</th>
+              <th style={{ ...th, textAlign: 'left', paddingLeft: '14px', whiteSpace: 'nowrap' }}>BRANCH / COURSE</th>
+              <th style={{ ...th, width: '105px' }}>TYPE</th>
+              <th style={{ ...th, background: '#FFFF00', color: '#000', width: '105px', fontSize: '13px' }}>VACANT</th>
             </tr>
           </thead>
 
           <tbody>
             {branches.map((branch, idx) => {
               const isFlash = flashId === branch._id;
-              const rowTotal = getRowTotal(branch);
               const vacant   = branch.totalVacant || 0;
               const isAided  = branch.type === 'Aided';
 
@@ -127,59 +99,21 @@ function BranchSummaryChart({ branches, flashId }) {
                   }}
                 >
                   {/* # */}
-                  <td style={{ ...td, color: '#999', fontSize: '10px' }}>{idx + 1}</td>
+                  <td style={{ ...td, color: '#999', fontSize: '11px', fontWeight: 600, padding: '8px 4px' }}>{idx + 1}</td>
 
                   {/* Branch name */}
-                  <td style={{ ...td, textAlign: 'left', fontWeight: 700, paddingLeft: '8px', color: 'var(--text-primary)', maxWidth: '140px', wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                  <td style={{ ...td, textAlign: 'left', fontWeight: 700, paddingLeft: '14px', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                     {branch.name}
                   </td>
 
                   {/* Type */}
-                  <td style={{ ...td, maxWidth: '65px' }}>
+                  <td style={{ ...td }}>
                     <span style={{
-                      display: 'inline-block', padding: '2px 5px', borderRadius: '12px',
-                      fontSize: '9px', fontWeight: 700, whiteSpace: 'nowrap',
+                      display: 'inline-block', padding: '2px 8px', borderRadius: '12px',
+                      fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap',
                       background: isAided ? 'rgba(37,99,235,0.1)' : 'rgba(217,119,6,0.1)',
                       color: isAided ? '#2563EB' : '#D97706'
                     }}>{branch.type}</span>
-                  </td>
-
-                  {/* Code */}
-
-                  {/* SI */}
-                  <td style={{ ...td, color: '#666' }}>{branch.sanctionedIntake || '—'}</td>
-
-                  {/* G / L per category */}
-                  {CATEGORIES.map(cat => {
-                    const g = getG(branch, cat);
-                    const l = getL(branch, cat);
-                    return (
-                      <React.Fragment key={cat}>
-                        {/* General */}
-                        <td style={{
-                          ...td,
-                          fontWeight: g > 0 ? 700 : 400,
-                          color: g > 0 ? '#059669' : '#CCC',
-                          borderRight: 'none'
-                        }}>
-                          {g > 0 ? g : <span style={{ color: '#CCC' }}>0</span>}
-                        </td>
-                        {/* Ladies */}
-                        <td style={{
-                          ...td,
-                          fontWeight: l > 0 ? 700 : 400,
-                          color: l > 0 ? '#D97706' : '#CCC',
-                          borderLeft: '1px dashed #E0E0E0'
-                        }}>
-                          {l > 0 ? l : <span style={{ color: '#CCC' }}>0</span>}
-                        </td>
-                      </React.Fragment>
-                    );
-                  })}
-
-                  {/* State Level Total */}
-                  <td style={{ ...td, background: '#FFF9E6', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {rowTotal}
                   </td>
 
                   {/* Overall Vacant + PWD/DEF breakdown */}
@@ -195,7 +129,7 @@ function BranchSummaryChart({ branches, flashId }) {
                         letterSpacing: '-0.5px',
                         verticalAlign: 'middle',
                         lineHeight: 1.1,
-                        padding: '6px 4px'
+                        padding: '8px 6px'
                       }}>
                         {vacant}
                         {(pwdT > 0 || defT > 0) && (
@@ -238,13 +172,12 @@ function BranchSummaryChart({ branches, flashId }) {
         </table>
       </div>
     </section>
-
   );
 }
 
 // ── Style tokens ─────────────────────────────────────────────────────────────
 const th = {
-  padding: '6px 5px',
+  padding: '8px 10px',
   border: '1px solid #D0D0D0',
   textAlign: 'center',
   fontWeight: 700,
@@ -256,20 +189,12 @@ const th = {
 };
 
 const td = {
-  padding: '6px 5px',
+  padding: '8px 10px',
   border: '1px solid #E0E0E0',
   textAlign: 'center',
-  fontSize: '11px',
+  fontSize: '12px',
   color: '#333',
   verticalAlign: 'middle'
 };
-
-function pill(color) {
-  return {
-    fontSize: '9px', fontWeight: 700, padding: '1px 5px',
-    borderRadius: '8px', background: color + '18', color,
-    border: `1px solid ${color}44`, whiteSpace: 'nowrap'
-  };
-}
 
 export default BranchSummaryChart;
