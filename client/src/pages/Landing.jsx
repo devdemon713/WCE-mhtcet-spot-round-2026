@@ -4,7 +4,6 @@ import axios from 'axios';
 import { useSocket } from '../context/SocketContext';
 import SeatMatrix from '../components/SeatMatrix';
 import BranchSummaryChart from '../components/BranchSummaryChart';
-import VacancySummaryTable from '../components/VacancySummaryTable';
 import LiveNotification from '../components/animations/LiveNotification';
 import TeaBreakOverlay from '../components/animations/TeaBreakOverlay';
 import LunchBreakOverlay from '../components/animations/LunchBreakOverlay';
@@ -150,9 +149,6 @@ function Landing() {
       <main className="main-content">
         {/* Live Branch Vacancy Summary Chart */}
         <BranchSummaryChart branches={filteredBranches} flashId={flashId} />
-
-        {/* DTE-style Category Vacancy Summary Table */}
-        <VacancySummaryTable branches={branches} />
 
         {/* Instructions */}
         <div className="instructions-card">
