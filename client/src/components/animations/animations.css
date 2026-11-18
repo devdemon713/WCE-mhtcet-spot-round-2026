@@ -2,6 +2,7 @@
   WCE ACAP Round Portal – Premium Animation Layer
    ============================================================ */
 /* ---------- Design Tokens (animation-specific) ---------- */
+
 :root {
   --anim-tea-warm: rgba(180, 83, 9, 0.12);
   --anim-lunch-warm: rgba(217, 119, 6, 0.10);

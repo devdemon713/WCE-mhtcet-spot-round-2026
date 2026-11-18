@@ -86,7 +86,7 @@ function AdminDashboard() {
   const [filterStatus, setFilterStatus] = useState('');
 
   useEffect(() => {
-    fetchAll();
+    fetchAll(true);
   }, []);
 
   useEffect(() => {
@@ -160,7 +160,7 @@ function AdminDashboard() {
     };
   }, [socket]);
 
-  const fetchAll = async () => {
+  const fetchAll = async (isInitial = false) => {
     try {
       const [branchRes, studentRes, statsRes, roundRes, alloRes, summaryRes] = await Promise.all([
         axios.get('/api/branches'),
@@ -180,7 +180,7 @@ function AdminDashboard() {
     } catch (err) {
       console.error('Fetch error:', err);
     }
-    setLoading(false);
+    if (isInitial) setLoading(false);
   };
 
   const syncAnnouncementFields = (currentRound) => {
@@ -234,9 +234,10 @@ function AdminDashboard() {
         seatPool: 'stateLevel'
       });
       showMsg("Student's seat has been secured successfully!");
-      fetchAll();
       setSelectedStudent('');
       setSelectedBranch('');
+      // Await the full refetch so UI updates immediately without needing page reload
+      await fetchAll();
     } catch (err) {
       showMsg('Allocation failed: ' + (err.response?.data?.message || err.message));
     }
@@ -250,7 +251,7 @@ function AdminDashboard() {
     try {
       const res = await axios.post('/api/allocation/auto', {});
       showMsg(res.data.message);
-      fetchAll();
+      await fetchAll();
     } catch (err) {
       showMsg('Auto allocation failed: ' + (err.response?.data?.message || err.message));
     }
@@ -263,7 +264,7 @@ function AdminDashboard() {
     try {
       await axios.delete(`/api/allocation/${alloId}`);
       showMsg('Allocation cancelled, seat returned.');
-      fetchAll();
+      await fetchAll();
     } catch (err) {
       showMsg('Error: ' + (err.response?.data?.message || err.message));
     }
@@ -297,10 +298,10 @@ function AdminDashboard() {
         toSeatType: upgradeToType
       });
       showMsg('✅ ' + res.data.message);
-      fetchAll();
       setUpgradeStudent('');
       setUpgradeFromBranch('');
       setUpgradeToBranch('');
+      await fetchAll();
     } catch (err) {
       showMsg('Upgrade failed: ' + (err.response?.data?.message || err.message));
     }
@@ -331,7 +332,7 @@ function AdminDashboard() {
     try {
       await axios.post('/api/allocation/skip', { studentId });
       showMsg(`⏭ ${studentName} skipped for this round`);
-      fetchAll();
+      await fetchAll();
     } catch (err) {
       showMsg('Skip failed: ' + (err.response?.data?.message || err.message));
     }
@@ -342,7 +343,7 @@ function AdminDashboard() {
     try {
       await axios.post('/api/allocation/unskip', { studentId });
       showMsg(`↩ ${studentName} unskipped`);
-      fetchAll();
+      await fetchAll();
     } catch (err) {
       showMsg('Unskip failed: ' + (err.response?.data?.message || err.message));
     }
