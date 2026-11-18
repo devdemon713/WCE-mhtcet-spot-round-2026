@@ -10,7 +10,7 @@ import { playBreakBell, playNotificationSound, playUrgentSound } from '../compon
 
 function StudentDashboard() {
   const { user, refreshUser } = useAuth();
-  const { socket } = useSocket();
+  const { socket, connected } = useSocket();
   const [branches, setBranches] = useState([]);
   const [allocation, setAllocation] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -24,6 +24,7 @@ function StudentDashboard() {
   }, []);
 
   // ── Polling fallback: keeps data live when socket disconnects (Render cold-starts, cross-device)
+  // Runs every 15s — lightweight safety net, socket handles real-time updates.
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -34,7 +35,7 @@ function StudentDashboard() {
         setBranches(branchRes.data);
         setAllocation(alloRes.data);
       } catch (_) {}
-    }, 8000);
+    }, 15000); // every 15s
     return () => clearInterval(interval);
   }, [user]);
 

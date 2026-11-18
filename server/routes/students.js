@@ -21,10 +21,13 @@ router.get('/', auth, adminOnly, async (req, res) => {
       ];
     }
 
+    // .lean() + populate: returns plain JS objects (3-5x faster than full Mongoose documents)
+    // Only select fields the UI actually needs. Only fetch 3 fields from Branch (not all).
     const students = await User.find(filter)
-      .select('-password')
-      .populate('allocatedBranch')
-      .sort({ wceMeritNumber: 1, mhtCetPercentile: -1 });
+      .select('-password -branchPreferences -skippedInRounds')
+      .populate('allocatedBranch', 'name type choiceCode')
+      .sort({ wceMeritNumber: 1, mhtCetPercentile: -1 })
+      .lean();
 
     res.json(students);
   } catch (error) {
@@ -37,18 +40,30 @@ router.get('/', auth, adminOnly, async (req, res) => {
 // @desc    Get student statistics (ADMIN)
 router.get('/stats', auth, adminOnly, async (req, res) => {
   try {
-    const total     = await User.countDocuments({ role: 'student' });
-    const pending   = await User.countDocuments({ role: 'student', allocationStatus: 'pending' });
-    const allocated = await User.countDocuments({ role: 'student', allocationStatus: 'allocated' });
-    const confirmed = await User.countDocuments({ role: 'student', allocationStatus: 'confirmed' });
-    const cancelled = await User.countDocuments({ role: 'student', allocationStatus: 'cancelled' });
-
-    const categoryWise = await User.aggregate([
-      { $match: { role: 'student' } },
-      { $group: { _id: '$category', count: { $sum: 1 } } }
+    // Single aggregation pass instead of 4 separate countDocuments calls
+    const [statusAgg, categoryAgg] = await Promise.all([
+      User.aggregate([
+        { $match: { role: 'student' } },
+        { $group: { _id: '$allocationStatus', count: { $sum: 1 } } }
+      ]),
+      User.aggregate([
+        { $match: { role: 'student' } },
+        { $group: { _id: '$category', count: { $sum: 1 } } }
+      ])
     ]);
 
-    res.json({ total, pending, allocated, confirmed, cancelled, categoryWise });
+    const statusMap = {};
+    let total = 0;
+    for (const s of statusAgg) { statusMap[s._id] = s.count; total += s.count; }
+
+    res.json({
+      total,
+      pending:   statusMap['pending']   || 0,
+      allocated: statusMap['allocated'] || 0,
+      confirmed: statusMap['confirmed'] || 0,
+      cancelled: statusMap['cancelled'] || 0,
+      categoryWise: categoryAgg
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }

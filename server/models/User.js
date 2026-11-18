@@ -99,6 +99,13 @@ const userSchema = new mongoose.Schema({
   }]
 }, { timestamps: true });
 
+// ── Indexes for fast allocation queries ──────────────────────────────────────
+// Without these, every query does a full scan of all 4562 student documents.
+userSchema.index({ role: 1, allocationStatus: 1 });                          // fetchAll, round-summary
+userSchema.index({ role: 1, allocationStatus: 1, mhtCetPercentile: -1 });    // auto-allocation sort
+userSchema.index({ applicationId: 1 });                                       // student lookup by ID
+// NOTE: email index is already defined via unique:true above — don't duplicate it
+
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 10);

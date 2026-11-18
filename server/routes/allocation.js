@@ -159,17 +159,23 @@ router.post('/upgrade', auth, adminOnly, async (req, res) => {
     io.emit('seat-update', { branchId: updatedFromBranch._id, branch: updatedFromBranch.toJSON(), updatedAt: new Date() });
     io.emit('seat-update', { branchId: updatedToBranch._id,   branch: updatedToBranch.toJSON(),   updatedAt: new Date() });
     io.emit('allocation-update', { studentId: student._id, updatedAt: new Date() });
-    await pushAllocationAnnouncement(io, student.fullName, student.wceMeritNumber, toBranch.name, toBranch.type, toSeatCategory, toSeatType);
+    // Fire-and-forget: don't await — announcement must NOT slow down upgrade response
+    pushAllocationAnnouncement(io, student.fullName, student.wceMeritNumber, toBranch.name, toBranch.type, toSeatCategory, toSeatType).catch(() => {});
 
     console.log(`🔄 Branch Upgrade: ${student.applicationId} | ${fromBranch.name} → ${toBranch.name}`);
 
-    const populated = await Allocation.findById(allocation._id)
-      .populate('student', '-password')
-      .populate('branch');
-
+    // Return immediately without extra DB round-trip
     res.status(201).json({
       message: `Branch upgrade successful: ${fromBranch.name} → ${toBranch.name}`,
-      allocation: populated,
+      allocation: {
+        _id: allocation._id,
+        student: { _id: student._id, fullName: student.fullName, applicationId: student.applicationId },
+        branch: { _id: toBranch._id, name: toBranch.name, type: toBranch.type, choiceCode: toBranch.choiceCode },
+        seatCategory: toSeatCategory,
+        seatType: toSeatType,
+        allocatedBy: 'upgrade',
+        status: 'allocated'
+      },
       fromBranch: updatedFromBranch,
       toBranch: updatedToBranch
     });
@@ -226,14 +232,21 @@ router.post('/manual', auth, adminOnly, async (req, res) => {
     const io = req.app.get('io');
     io.emit('seat-update', { branchId: branch._id, branch: branch.toJSON(), updatedAt: new Date() });
     io.emit('allocation-update', { studentId: student._id, updatedAt: new Date() });
-    // Auto-push to announcement ticker
-    await pushAllocationAnnouncement(io, student.fullName, student.wceMeritNumber, branch.name, branch.type, seatCategory, seatType);
+    // Fire-and-forget: don't await — announcement update must NOT slow down allocation response
+    pushAllocationAnnouncement(io, student.fullName, student.wceMeritNumber, branch.name, branch.type, seatCategory, seatType).catch(() => {});
 
-    const populated = await Allocation.findById(allocation._id)
-      .populate('student', '-password')
-      .populate('branch');
-
-    res.status(201).json(populated);
+    // Return the allocation we already have — no extra DB round-trip needed
+    res.status(201).json({
+      _id: allocation._id,
+      student: { _id: student._id, fullName: student.fullName, applicationId: student.applicationId, allocationStatus: 'allocated' },
+      branch: { _id: branch._id, name: branch.name, type: branch.type, choiceCode: branch.choiceCode },
+      seatCategory,
+      seatType,
+      seatPool: pool,
+      allocatedBy: 'manual',
+      status: 'allocated',
+      createdAt: allocation.createdAt
+    });
   } catch (error) {
     console.error('Manual allocation error:', error);
     res.status(500).json({ message: error.message || 'Server error' });

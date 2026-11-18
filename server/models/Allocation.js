@@ -53,4 +53,9 @@ const allocationSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+// ── Indexes for fast allocation lookups ──────────────────────────────────────
+allocationSchema.index({ student: 1, status: 1 });   // /student/:id lookup
+allocationSchema.index({ round: 1, status: 1 });     // round-summary
+allocationSchema.index({ status: 1, createdAt: -1 }); // history list
+
 module.exports = mongoose.model('Allocation', allocationSchema);

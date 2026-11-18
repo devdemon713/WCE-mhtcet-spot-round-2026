@@ -89,12 +89,20 @@ function AdminDashboard() {
     fetchAll(true);
   }, []);
 
-  // ── Polling fallback: re-fetch every 7s to stay fresh on Render cold-starts
-  // and cross-device updates when socket is temporarily unavailable.
+  // ── Lightweight polling fallback: only re-fetch branches + stats every 15s
+  // (NOT the full student list — that's 4562 records and kills performance).
+  // Socket handles real-time; this is only a safety net for Render cold-starts.
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchAll(false);
-    }, 7000);
+    const interval = setInterval(async () => {
+      try {
+        const [branchRes, statsRes] = await Promise.all([
+          axios.get('/api/branches'),
+          axios.get('/api/students/stats'),
+        ]);
+        setBranches(branchRes.data);
+        setStats(statsRes.data);
+      } catch (_) {}
+    }, 15000); // every 15s — lightweight, won't hammer the server
     return () => clearInterval(interval);
   }, []);
 
@@ -120,21 +128,26 @@ function AdminDashboard() {
     const onBreakEnd = () => {
       setBreakActive(null);
     };
-    // When any allocation happens → re-fetch student list + stats so counts update live
-    const onAllocationUpdate = async () => {
+    // When any allocation happens → update ONLY stats + the one student's status in the list
+    // Do NOT re-fetch all 4562 students — that's the main performance killer.
+    const onAllocationUpdate = async (data) => {
       try {
-        const [studentRes, statsRes, summaryRes] = await Promise.all([
-          axios.get('/api/students'),
-          axios.get('/api/students/stats'),
-          axios.get('/api/allocation/round-summary').catch(() => ({ data: { allocatedThisRound: [], remainingStudents: [], skippedStudents: [], currentRound: null } }))
-        ]);
-        setStudents(studentRes.data);
+        // Update the single student's status in the existing list (patch in place)
+        if (data.studentId) {
+          setStudents(prev => prev.map(s =>
+            (s._id === data.studentId || s.id === data.studentId)
+              ? { ...s, allocationStatus: 'allocated' }
+              : s
+          ));
+        }
+        // Refresh only stats (tiny payload)
+        const statsRes = await axios.get('/api/students/stats');
         setStats(statsRes.data);
-        setRoundSummary(summaryRes.data);
       } catch (e) { console.error('RT student refresh error:', e); }
     };
     const onAllocationBatch = async () => {
       try {
+        // After batch, do a full refresh (happens rarely, OK to be slow once)
         const [studentRes, statsRes, alloRes, summaryRes] = await Promise.all([
           axios.get('/api/students'),
           axios.get('/api/students/stats'),
