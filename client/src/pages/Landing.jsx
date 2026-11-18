@@ -25,6 +25,23 @@ function Landing() {
     fetchData();
   }, []);
 
+  // ── Polling fallback: re-fetch branches + round every 8 seconds ──────────────
+  // Ensures data stays current even when socket is disconnected (Render cold starts,
+  // network changes, mobile cross-device access, etc.)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const [branchRes, roundRes] = await Promise.all([
+          axios.get('/api/branches'),
+          axios.get('/api/round/current')
+        ]);
+        setBranches(branchRes.data);
+        setRound(roundRes.data);
+      } catch (_) {}
+    }, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Listen for real-time updates
   useEffect(() => {
     if (!socket) return;

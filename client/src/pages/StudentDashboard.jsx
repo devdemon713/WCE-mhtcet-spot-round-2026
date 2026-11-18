@@ -23,6 +23,21 @@ function StudentDashboard() {
     fetchData();
   }, []);
 
+  // ── Polling fallback: keeps data live when socket disconnects (Render cold-starts, cross-device)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const [branchRes, alloRes] = await Promise.all([
+          axios.get('/api/branches'),
+          axios.get(`/api/allocation/student/${user?._id || user?.id}`)
+        ]);
+        setBranches(branchRes.data);
+        setAllocation(alloRes.data);
+      } catch (_) {}
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [user]);
+
   useEffect(() => {
     if (!socket) return;
 

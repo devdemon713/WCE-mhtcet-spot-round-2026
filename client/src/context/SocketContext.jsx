@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { io } from 'socket.io-client';
 
 const SocketContext = createContext();
@@ -12,32 +12,39 @@ export function SocketProvider({ children }) {
   const [connected, setConnected] = useState(false);
   const [clientsCount, setClientsCount] = useState(0);
   const socketRef = useRef(null);
-  // Guard against StrictMode double-mount creating two sockets
   const initialized = useRef(false);
 
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
 
+    // Use env var — set VITE_SOCKET_URL to your Render backend URL in production.
+    // Falls back to localhost for local dev.
     const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
     const socketInstance = io(socketUrl, {
-      transports: ['websocket', 'polling'],
-      reconnectionDelay: 1000,
+      // polling first → works through Render's proxy / Vercel edge
+      // socket.io auto-upgrades to WebSocket after the handshake
+      transports: ['polling', 'websocket'],
+      reconnectionDelay: 2000,
       reconnectionAttempts: Infinity,
-      forceNew: false,
+      timeout: 20000,
     });
 
     socketRef.current = socketInstance;
 
     socketInstance.on('connect', () => {
       setConnected(true);
-      console.log('✅ Socket.IO connected:', socketInstance.id);
+      console.log('✅ Socket.IO connected:', socketInstance.id, '→', socketUrl);
     });
 
-    socketInstance.on('disconnect', () => {
+    socketInstance.on('disconnect', (reason) => {
       setConnected(false);
-      console.log('❌ Socket.IO disconnected');
+      console.warn('❌ Socket.IO disconnected:', reason);
+    });
+
+    socketInstance.on('connect_error', (err) => {
+      console.warn('⚠️ Socket connect error:', err.message);
     });
 
     socketInstance.on('clients-count', (count) => {

@@ -13,15 +13,57 @@ const roundRoutes = require('./routes/round');
 
 const app = express();
 const server = http.createServer(app);
+
+// ── CORS: Allow Vercel frontend + localhost for dev ──────────────────────────
+const allowedOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(',').map(s => s.trim())
+  : ['http://localhost:5173', 'http://localhost:5174'];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (Postman, mobile apps, curl)
+    if (!origin) return callback(null, true);
+    // Allow any vercel.app subdomain + configured origins
+    if (
+      allowedOrigins.some(o => origin.startsWith(o)) ||
+      origin.endsWith('.vercel.app') ||
+      origin.includes('localhost')
+    ) {
+      return callback(null, true);
+    }
+    callback(new Error(`CORS blocked: ${origin}`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
 const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE']
-  }
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (
+        allowedOrigins.some(o => origin.startsWith(o)) ||
+        origin.endsWith('.vercel.app') ||
+        origin.includes('localhost')
+      ) {
+        return callback(null, true);
+      }
+      callback(new Error(`Socket CORS blocked: ${origin}`));
+    },
+    methods: ['GET', 'POST'],
+    credentials: true
+  },
+  // Use polling first — required for Render's load balancer to pass through.
+  // After handshake, socket.io upgrades to WebSocket automatically.
+  transports: ['polling', 'websocket'],
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
 
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Make io accessible to routes
@@ -34,9 +76,9 @@ app.use('/api/students', studentRoutes);
 app.use('/api/allocation', allocationRoutes);
 app.use('/api/round', roundRoutes);
 
-// Health check
+// Health check + keep-alive ping (prevents Render free-tier spin-down)
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'WCE ACAP Round Server Running' });
+  res.json({ status: 'ok', message: 'WCE ACAP Round Server Running', ts: Date.now() });
 });
 
 // ── ONE-TIME Admin Seed ──────────────────────────────────────────────────────
@@ -100,6 +142,22 @@ mongoose.connect(MONGO_URI)
     console.log('✅ MongoDB connected successfully');
     server.listen(PORT, () => {
       console.log(`🚀 WCE ACAP Round Server running on port ${PORT}`);
+
+      // ── Keep Render free tier warm: self-ping every 14 minutes ──────────
+      // Render sets RENDER_EXTERNAL_URL automatically for deployed services.
+      // This prevents the 15-min inactivity spin-down.
+      if (process.env.RENDER_EXTERNAL_URL) {
+        const https = require('https');
+        const keepAliveUrl = `${process.env.RENDER_EXTERNAL_URL}/api/health`;
+        setInterval(() => {
+          https.get(keepAliveUrl, (res) => {
+            console.log(`🔁 Keep-alive ping → ${res.statusCode}`);
+          }).on('error', (err) => {
+            console.warn('⚠️ Keep-alive ping failed:', err.message);
+          });
+        }, 14 * 60 * 1000); // every 14 minutes
+        console.log(`🔁 Keep-alive pinger active → ${keepAliveUrl}`);
+      }
     });
   })
   .catch(err => {

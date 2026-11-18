@@ -89,6 +89,15 @@ function AdminDashboard() {
     fetchAll(true);
   }, []);
 
+  // ── Polling fallback: re-fetch every 7s to stay fresh on Render cold-starts
+  // and cross-device updates when socket is temporarily unavailable.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchAll(false);
+    }, 7000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     if (!socket) return;
 
