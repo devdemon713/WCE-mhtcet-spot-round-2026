@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useSocket } from '../context/SocketContext';
 import SeatMatrix from '../components/SeatMatrix';
 import BranchSummaryChart from '../components/BranchSummaryChart';
+import VacancySummaryTable from '../components/VacancySummaryTable';
 import LiveNotification from '../components/animations/LiveNotification';
 import TeaBreakOverlay from '../components/animations/TeaBreakOverlay';
 import LunchBreakOverlay from '../components/animations/LunchBreakOverlay';
@@ -29,55 +30,38 @@ function Landing() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('seat-update', (data) => {
-      setBranches(prev => prev.map(b =>
-        b._id === data.branchId ? data.branch : b
-      ));
+    const onSeatUpdate = (data) => {
+      setBranches(prev => prev.map(b => b._id === data.branchId ? data.branch : b));
       setFlashId(data.branchId);
       setTimeout(() => setFlashId(null), 1000);
-    });
-
-    socket.on('seats-reset', (data) => {
-      setBranches(data.branches);
-    });
-
-    socket.on('round-update', (data) => {
-      setRound(data.round);
-    });
-
-    socket.on('announcement-update', (data) => {
-      setRound(data.round);
-    });
-
-    socket.on('admin-alert', (data) => {
+    };
+    const onSeatsReset = (data) => { setBranches(data.branches); };
+    const onRoundUpdate = (data) => { setRound(data.round); };
+    const onAnnouncementUpdate = (data) => { setRound(data.round); };
+    const onAdminAlert = (data) => {
       setLiveAlert(data);
-      // Play attention sound based on alert type
-      if (data.type === 'urgent') {
-        playUrgentSound();
-      } else {
-        playNotificationSound();
-      }
-      // Auto-dismiss after 7 seconds
+      if (data.type === 'urgent') { playUrgentSound(); } else { playNotificationSound(); }
       setTimeout(() => setLiveAlert(null), 7000);
-    });
+    };
+    const onBreakStart = (data) => { setBreakType(data.type); playBreakBell(); };
+    const onBreakEnd = () => { setBreakType(null); };
 
-    socket.on('break-start', (data) => {
-      setBreakType(data.type); // 'tea' or 'lunch'
-      playBreakBell(); // ~10 second bell chime
-    });
-
-    socket.on('break-end', () => {
-      setBreakType(null);
-    });
+    socket.on('seat-update',         onSeatUpdate);
+    socket.on('seats-reset',         onSeatsReset);
+    socket.on('round-update',        onRoundUpdate);
+    socket.on('announcement-update', onAnnouncementUpdate);
+    socket.on('admin-alert',         onAdminAlert);
+    socket.on('break-start',         onBreakStart);
+    socket.on('break-end',           onBreakEnd);
 
     return () => {
-      socket.off('seat-update');
-      socket.off('seats-reset');
-      socket.off('round-update');
-      socket.off('announcement-update');
-      socket.off('admin-alert');
-      socket.off('break-start');
-      socket.off('break-end');
+      socket.off('seat-update',         onSeatUpdate);
+      socket.off('seats-reset',         onSeatsReset);
+      socket.off('round-update',        onRoundUpdate);
+      socket.off('announcement-update', onAnnouncementUpdate);
+      socket.off('admin-alert',         onAdminAlert);
+      socket.off('break-start',         onBreakStart);
+      socket.off('break-end',           onBreakEnd);
     };
   }, [socket]);
 
@@ -166,6 +150,9 @@ function Landing() {
       <main className="main-content">
         {/* Live Branch Vacancy Summary Chart */}
         <BranchSummaryChart branches={filteredBranches} flashId={flashId} />
+
+        {/* DTE-style Category Vacancy Summary Table */}
+        <VacancySummaryTable branches={branches} />
 
         {/* Instructions */}
         <div className="instructions-card">

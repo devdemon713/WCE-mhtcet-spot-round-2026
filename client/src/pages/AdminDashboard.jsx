@@ -91,32 +91,72 @@ function AdminDashboard() {
 
   useEffect(() => {
     if (!socket) return;
-    socket.on('seat-update', (data) => {
+
+    const onSeatUpdate = (data) => {
       setBranches(prev => prev.map(b => b._id === data.branchId ? data.branch : b));
-    });
-    socket.on('seats-reset', (data) => {
+    };
+    const onSeatsReset = (data) => {
       setBranches(data.branches);
-    });
-    socket.on('round-update', (data) => {
+    };
+    const onRoundUpdate = (data) => {
       setRound(data.round);
-    });
-    socket.on('announcement-update', (data) => {
+    };
+    const onAnnouncementUpdate = (data) => {
       setRound(data.round);
       syncAnnouncementFields(data.round);
-    });
-    socket.on('break-start', (data) => {
+    };
+    const onBreakStart = (data) => {
       setBreakActive(data.type);
-    });
-    socket.on('break-end', () => {
+    };
+    const onBreakEnd = () => {
       setBreakActive(null);
-    });
+    };
+    // When any allocation happens → re-fetch student list + stats so counts update live
+    const onAllocationUpdate = async () => {
+      try {
+        const [studentRes, statsRes, summaryRes] = await Promise.all([
+          axios.get('/api/students'),
+          axios.get('/api/students/stats'),
+          axios.get('/api/allocation/round-summary').catch(() => ({ data: { allocatedThisRound: [], remainingStudents: [], skippedStudents: [], currentRound: null } }))
+        ]);
+        setStudents(studentRes.data);
+        setStats(statsRes.data);
+        setRoundSummary(summaryRes.data);
+      } catch (e) { console.error('RT student refresh error:', e); }
+    };
+    const onAllocationBatch = async () => {
+      try {
+        const [studentRes, statsRes, alloRes, summaryRes] = await Promise.all([
+          axios.get('/api/students'),
+          axios.get('/api/students/stats'),
+          axios.get('/api/allocation/history'),
+          axios.get('/api/allocation/round-summary').catch(() => ({ data: { allocatedThisRound: [], remainingStudents: [], skippedStudents: [], currentRound: null } }))
+        ]);
+        setStudents(studentRes.data);
+        setStats(statsRes.data);
+        setAllocations(alloRes.data);
+        setRoundSummary(summaryRes.data);
+      } catch (e) { console.error('RT batch refresh error:', e); }
+    };
+
+    socket.on('seat-update',          onSeatUpdate);
+    socket.on('seats-reset',          onSeatsReset);
+    socket.on('round-update',         onRoundUpdate);
+    socket.on('announcement-update',  onAnnouncementUpdate);
+    socket.on('break-start',          onBreakStart);
+    socket.on('break-end',            onBreakEnd);
+    socket.on('allocation-update',    onAllocationUpdate);
+    socket.on('allocation-batch-complete', onAllocationBatch);
+
     return () => {
-      socket.off('seat-update');
-      socket.off('seats-reset');
-      socket.off('round-update');
-      socket.off('announcement-update');
-      socket.off('break-start');
-      socket.off('break-end');
+      socket.off('seat-update',          onSeatUpdate);
+      socket.off('seats-reset',          onSeatsReset);
+      socket.off('round-update',         onRoundUpdate);
+      socket.off('announcement-update',  onAnnouncementUpdate);
+      socket.off('break-start',          onBreakStart);
+      socket.off('break-end',            onBreakEnd);
+      socket.off('allocation-update',    onAllocationUpdate);
+      socket.off('allocation-batch-complete', onAllocationBatch);
     };
   }, [socket]);
 
@@ -712,44 +752,68 @@ function AdminDashboard() {
                           const isSel = selectedStudent === s._id;
                           const isAllocated = s.allocationStatus === 'allocated' || s.allocationStatus === 'confirmed';
                           const isSkipped = currentRoundId && s.skippedInRounds && s.skippedInRounds.includes(currentRoundId);
+                          // Allocated students are LOCKED in Manual mode — use Branch Upgrade instead
+                          const isLocked = isAllocated;
 
                           return (
                             <div
                               key={s._id}
+                              title={isLocked ? '🔒 Already allocated — use Branch Upgrade to transfer' : ''}
                               style={{
                                 display: 'flex', alignItems: 'center', gap: '12px',
                                 padding: '12px 16px',
                                 borderBottom: '1px solid rgba(139,26,26,0.12)',
-                                background: isSel ? 'linear-gradient(135deg,#8B1A1A,#B22222)' : isAllocated ? '#F0FDF4' : idx % 2 === 0 ? '#fff' : '#FFF8F8',
-                                color: isSel ? '#fff' : 'var(--text-primary)',
+                                background: isSel
+                                  ? 'linear-gradient(135deg,#8B1A1A,#B22222)'
+                                  : isLocked
+                                    ? '#F0FDF4'
+                                    : idx % 2 === 0 ? '#fff' : '#FFF8F8',
+                                color: isSel ? '#fff' : isLocked ? '#6B7280' : 'var(--text-primary)',
                                 transition: 'all 0.18s ease',
-                                opacity: isSkipped && !isSel ? 0.75 : 1
+                                opacity: isSkipped && !isSel ? 0.75 : isLocked ? 0.82 : 1,
+                                cursor: isLocked ? 'not-allowed' : 'default',
                               }}
                             >
                               {/* Rank circle / WCE Merit Number */}
                               <span
-                                onClick={() => setSelectedStudent(isSel ? '' : s._id)}
+                                onClick={() => !isLocked && setSelectedStudent(isSel ? '' : s._id)}
                                 style={{
-                                  minWidth: '36px', height: '32px', borderRadius: '16px', cursor: 'pointer', padding: '0 6px',
-                                  background: isSel ? 'rgba(255,255,255,0.2)' : isAllocated ? '#16A34A' : '#8B1A1A',
+                                  minWidth: '36px', height: '32px', borderRadius: '16px',
+                                  cursor: isLocked ? 'not-allowed' : 'pointer', padding: '0 6px',
+                                  background: isSel ? 'rgba(255,255,255,0.2)' : isLocked ? '#16A34A' : '#8B1A1A',
                                   color: '#fff', fontSize: '11px', fontWeight: 800,
                                   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                                 }}
-                                title={s.wceMeritNumber ? `WCE Merit #${s.wceMeritNumber}` : `Rank #${idx + 1}`}
+                                title={isLocked
+                                  ? '🔒 Seat already secured — use Branch Upgrade to change'
+                                  : s.wceMeritNumber ? `WCE Merit #${s.wceMeritNumber}` : `Rank #${idx + 1}`}
                               >
-                                {s.wceMeritNumber ? `#${s.wceMeritNumber}` : idx + 1}
+                                {isLocked ? '🔒' : (s.wceMeritNumber ? `#${s.wceMeritNumber}` : idx + 1)}
                               </span>
 
                               {/* Name + AppID + badges */}
                               <div
-                                onClick={() => setSelectedStudent(isSel ? '' : s._id)}
-                                style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+                                onClick={() => !isLocked && setSelectedStudent(isSel ? '' : s._id)}
+                                style={{ flex: 1, minWidth: 0, cursor: isLocked ? 'not-allowed' : 'pointer' }}
                               >
                                 <div style={{ fontWeight: 700, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <span>{s.fullName}</span>
-                                  {isAllocated && (
-                                    <span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: '4px', background: isSel ? 'rgba(255,255,255,0.3)' : '#DCFCE7', color: isSel ? '#fff' : '#15803D' }}>
-                                      ✅ Allocated: {s.allocatedBranch?.name || s.allocatedBranch?.code || 'Seat Secured'}
+                                  <span style={{ color: isLocked && !isSel ? '#374151' : 'inherit' }}>{s.fullName}</span>
+                                  {isLocked && (
+                                    <span style={{
+                                      fontSize: '10px', fontWeight: 700, padding: '1px 8px', borderRadius: '4px',
+                                      background: '#DCFCE7', color: '#15803D',
+                                      border: '1px solid #86EFAC', whiteSpace: 'nowrap'
+                                    }}>
+                                      ✅ Allocated: {s.allocatedBranch?.name || 'Seat Secured'}
+                                    </span>
+                                  )}
+                                  {isLocked && (
+                                    <span style={{
+                                      fontSize: '10px', fontWeight: 600, padding: '1px 8px', borderRadius: '4px',
+                                      background: '#FEF9C3', color: '#713F12',
+                                      border: '1px solid #FDE047', whiteSpace: 'nowrap'
+                                    }}>
+                                      🔄 Use Branch Upgrade
                                     </span>
                                   )}
                                   {isSkipped && (
@@ -773,8 +837,8 @@ function AdminDashboard() {
                                 </div>
                               </div>
 
-                              {/* Skip / Unskip button */}
-                              {isSkipped ? (
+                              {/* Skip / Unskip — hidden for allocated students */}
+                              {!isLocked && (isSkipped ? (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleUnskipStudent(s._id, s.fullName); }}
                                   title="Unskip this student for current round"
@@ -783,8 +847,7 @@ function AdminDashboard() {
                                     borderRadius: '6px', border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #059669',
                                     background: isSel ? 'rgba(255,255,255,0.15)' : '#ECFDF5',
                                     color: isSel ? '#fff' : '#047857', cursor: 'pointer',
-                                    whiteSpace: 'nowrap', flexShrink: 0,
-                                    transition: 'all 0.15s ease'
+                                    whiteSpace: 'nowrap', flexShrink: 0, transition: 'all 0.15s ease'
                                   }}
                                 >
                                   ↩ Unskip
@@ -798,13 +861,12 @@ function AdminDashboard() {
                                     borderRadius: '6px', border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #E5A300',
                                     background: isSel ? 'rgba(255,255,255,0.15)' : '#FFFBEB',
                                     color: isSel ? '#fff' : '#92400E', cursor: 'pointer',
-                                    whiteSpace: 'nowrap', flexShrink: 0,
-                                    transition: 'all 0.15s ease'
+                                    whiteSpace: 'nowrap', flexShrink: 0, transition: 'all 0.15s ease'
                                   }}
                                 >
                                   ⏭ Skip
                                 </button>
-                              )}
+                              ))}
                             </div>
                           );
                         })
@@ -861,13 +923,24 @@ function AdminDashboard() {
                   </div>
 
                   <div className="form-group full-width">
-                    <button
-                      className="btn btn-primary btn-lg btn-block"
-                      onClick={handleManualAllocate}
-                      disabled={allocating || !selectedStudent || !selectedBranch}
-                    >
-                      {allocating ? 'Allocating...' : '✅ Allocate Seat'}
-                    </button>
+                    {(() => {
+                      const selStudentObj = selectedStudent ? students.find(x => x._id === selectedStudent) : null;
+                      const selIsAllocated = selStudentObj && (selStudentObj.allocationStatus === 'allocated' || selStudentObj.allocationStatus === 'confirmed');
+                      return selIsAllocated ? (
+                        <div style={{ padding: '12px 16px', background: '#FEF9C3', border: '1.5px solid #FDE047', borderRadius: '8px', color: '#713F12', fontSize: '13px', fontWeight: 600 }}>
+                          🔒 <strong>{selStudentObj.fullName}</strong> already has a seat ({selStudentObj.allocatedBranch?.name || 'Active Seat'}).
+                          &nbsp;Use <strong>Branch Upgrade</strong> to transfer them to a different branch.
+                        </div>
+                      ) : (
+                        <button
+                          className="btn btn-primary btn-lg btn-block"
+                          onClick={handleManualAllocate}
+                          disabled={allocating || !selectedStudent || !selectedBranch}
+                        >
+                          {allocating ? 'Allocating...' : '✅ Allocate Seat'}
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -990,21 +1063,55 @@ function AdminDashboard() {
                         );
                         return filtered.map((s, idx) => {
                           const isSel = upgradeStudent === s._id;
+                          const isAllocated = s.allocationStatus === 'allocated' || s.allocationStatus === 'confirmed';
+                          // Only allocated students can be branch-upgraded (they must have a seat to transfer FROM)
+                          const isLocked = !isAllocated;
+
                           return (
                             <div
                               key={s._id}
-                              onClick={() => setUpgradeStudent(isSel ? '' : s._id)}
+                              onClick={() => !isLocked && setUpgradeStudent(isSel ? '' : s._id)}
+                              title={isLocked ? '⚠️ Student has no seat yet — allocate first via Manual Allocation' : ''}
                               style={{
                                 display: 'flex', alignItems: 'center', gap: '10px',
-                                padding: '10px 14px', cursor: 'pointer',
+                                padding: '10px 14px',
+                                cursor: isLocked ? 'not-allowed' : 'pointer',
                                 borderBottom: '1px solid rgba(139,26,26,0.08)',
-                                background: isSel ? 'linear-gradient(135deg,#8B1A1A,#B22222)' : idx % 2 === 0 ? '#fff' : '#FFF8F8',
-                                color: isSel ? '#fff' : 'var(--text-primary)',
+                                background: isSel
+                                  ? 'linear-gradient(135deg,#8B1A1A,#B22222)'
+                                  : isLocked
+                                    ? '#FFF7ED'
+                                    : idx % 2 === 0 ? '#fff' : '#FFF8F8',
+                                color: isSel ? '#fff' : isLocked ? '#9CA3AF' : 'var(--text-primary)',
+                                opacity: isLocked ? 0.75 : 1,
                                 transition: 'all 0.15s ease'
                               }}
                             >
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontWeight: 700, fontSize: '13px' }}>{s.fullName}</div>
+                                <div style={{ fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  {isLocked && <span style={{ fontSize: '12px' }}>⚠️</span>}
+                                  <span>{s.fullName}</span>
+                                  {isAllocated && (
+                                    <span style={{
+                                      fontSize: '10px', fontWeight: 700, padding: '1px 7px', borderRadius: '4px',
+                                      background: isSel ? 'rgba(255,255,255,0.25)' : '#DCFCE7',
+                                      color: isSel ? '#fff' : '#15803D',
+                                      border: isSel ? '1px solid rgba(255,255,255,0.4)' : '1px solid #86EFAC',
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      ✅ {s.allocatedBranch?.name || 'Allocated'}
+                                    </span>
+                                  )}
+                                  {isLocked && (
+                                    <span style={{
+                                      fontSize: '10px', fontWeight: 600, padding: '1px 7px', borderRadius: '4px',
+                                      background: '#FEF3C7', color: '#B45309',
+                                      border: '1px solid #FCD34D', whiteSpace: 'nowrap'
+                                    }}>
+                                      No seat yet
+                                    </span>
+                                  )}
+                                </div>
                                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginTop: '3px' }}>
                                   <span style={{ fontSize: '11px', opacity: isSel ? 0.8 : 0.5 }}>{s.applicationId}</span>
                                   {s.wceMeritNumber && (
@@ -1017,7 +1124,11 @@ function AdminDashboard() {
                                   <span style={{ fontSize: '11px', fontWeight: 800, padding: '1px 7px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#FFF0F0', color: isSel ? '#fff' : '#8B1A1A' }}>📊 {s.mhtCetPercentile}%ile</span>
                                   <span style={{ fontSize: '11px', fontWeight: 700, padding: '1px 7px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#FFFBEB', color: isSel ? '#fff' : '#B45309' }}>{normalizeCat(s.category)}</span>
                                   <span style={{ fontSize: '11px', fontWeight: 600, padding: '1px 7px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#F0F9FF', color: isSel ? '#fff' : '#0369A1' }}>{s.gender === 'Female' ? '♀' : '♂'} {s.gender}</span>
-                                  <span style={{ fontSize: '11px', fontWeight: 600, padding: '1px 7px', borderRadius: '20px', background: isSel ? 'rgba(255,255,255,0.25)' : '#F5F3FF', color: isSel ? '#fff' : '#6D28D9' }}>{s.allocationStatus}</span>
+                                  <span style={{
+                                    fontSize: '11px', fontWeight: 700, padding: '1px 7px', borderRadius: '20px',
+                                    background: isSel ? 'rgba(255,255,255,0.25)' : isAllocated ? '#DCFCE7' : '#FEF3C7',
+                                    color: isSel ? '#fff' : isAllocated ? '#15803D' : '#B45309'
+                                  }}>{s.allocationStatus}</span>
                                 </div>
                               </div>
                             </div>

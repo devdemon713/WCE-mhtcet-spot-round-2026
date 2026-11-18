@@ -26,53 +26,46 @@ function StudentDashboard() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('seat-update', (data) => {
-      setBranches(prev => prev.map(b =>
-        b._id === data.branchId ? data.branch : b
-      ));
+    const onSeatUpdate = (data) => {
+      setBranches(prev => prev.map(b => b._id === data.branchId ? data.branch : b));
       setFlashId(data.branchId);
       setTimeout(() => setFlashId(null), 1000);
-    });
-
-    socket.on('allocation-update', (data) => {
+    };
+    const onAllocationUpdate = (data) => {
       if (data.studentId === user?._id || data.studentId === user?.id) {
         refreshUser();
         fetchAllocation();
       }
-    });
-
-    socket.on('allocation-batch-complete', () => {
+    };
+    const onAllocationBatch = () => {
       refreshUser();
       fetchAllocation();
-    });
-
-    socket.on('admin-alert', (data) => {
+    };
+    const onAdminAlert = (data) => {
       setLiveAlert(data);
-      // Play attention sound based on alert type
-      if (data.type === 'urgent') {
-        playUrgentSound();
-      } else {
-        playNotificationSound();
-      }
+      if (data.type === 'urgent') { playUrgentSound(); } else { playNotificationSound(); }
       setTimeout(() => setLiveAlert(null), 7000);
-    });
+    };
+    const onBreakStart = (data) => { setBreakType(data.type); playBreakBell(); };
+    const onBreakEnd = () => { setBreakType(null); };
+    const onSeatsReset = (data) => { if (data.branches) setBranches(data.branches); };
 
-    socket.on('break-start', (data) => {
-      setBreakType(data.type);
-      playBreakBell(); // ~10 second bell chime
-    });
-
-    socket.on('break-end', () => {
-      setBreakType(null);
-    });
+    socket.on('seat-update',               onSeatUpdate);
+    socket.on('seats-reset',               onSeatsReset);
+    socket.on('allocation-update',         onAllocationUpdate);
+    socket.on('allocation-batch-complete', onAllocationBatch);
+    socket.on('admin-alert',               onAdminAlert);
+    socket.on('break-start',               onBreakStart);
+    socket.on('break-end',                 onBreakEnd);
 
     return () => {
-      socket.off('seat-update');
-      socket.off('allocation-update');
-      socket.off('allocation-batch-complete');
-      socket.off('admin-alert');
-      socket.off('break-start');
-      socket.off('break-end');
+      socket.off('seat-update',               onSeatUpdate);
+      socket.off('seats-reset',               onSeatsReset);
+      socket.off('allocation-update',         onAllocationUpdate);
+      socket.off('allocation-batch-complete', onAllocationBatch);
+      socket.off('admin-alert',               onAdminAlert);
+      socket.off('break-start',               onBreakStart);
+      socket.off('break-end',                 onBreakEnd);
     };
   }, [socket, user]);
 

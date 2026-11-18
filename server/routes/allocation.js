@@ -90,6 +90,14 @@ router.post('/upgrade', auth, adminOnly, async (req, res) => {
     const student = await User.findById(studentId);
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
+    // GUARD: Only allocated students can do branch upgrade (they must have a seat to transfer FROM)
+    if (student.allocationStatus !== 'allocated' && student.allocationStatus !== 'confirmed') {
+      return res.status(400).json({
+        message: `Student "${student.fullName}" has no seat allocated yet. Allocate a seat first via Manual Allocation before doing a Branch Upgrade.`,
+        code: 'NOT_ALLOCATED'
+      });
+    }
+
     // Validate FROM branch exists
     const fromBranch = await Branch.findById(fromBranchId);
     if (!fromBranch) return res.status(404).json({ message: 'Source (FROM) branch not found' });
@@ -184,24 +192,13 @@ router.post('/manual', auth, adminOnly, async (req, res) => {
     const student = await User.findById(studentId);
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
-    // If student is already allocated, return previous seat to pool first
+    // ── GUARD: Block manual allocation for already-allocated students ──────────
+    // Use Branch Upgrade (/api/allocation/upgrade) to move an allocated student.
     if (student.allocationStatus === 'allocated' || student.allocationStatus === 'confirmed') {
-      if (student.allocatedBranch) {
-        try {
-          await incrementSeat(
-            student.allocatedBranch,
-            student.allocatedSeatPool || 'stateLevel',
-            student.allocatedSeatCategory || student.category,
-            student.allocatedSeatType || 'general'
-          );
-        } catch (e) {
-          console.warn('Could not return previous seat:', e.message);
-        }
-      }
-      await Allocation.updateMany(
-        { student: studentId, status: { $ne: 'cancelled' } },
-        { status: 'cancelled' }
-      );
+      return res.status(400).json({
+        message: `Student "${student.fullName}" already has a seat allocated. Use Branch Upgrade to transfer them to a different branch.`,
+        code: 'ALREADY_ALLOCATED'
+      });
     }
 
     const pool = seatPool || 'stateLevel';
@@ -503,6 +500,8 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
 
     const io = req.app.get('io');
     io.emit('seat-update', { branchId: branch._id, branch: branch.toJSON(), updatedAt: new Date() });
+    // Notify clients that student's allocation status changed
+    io.emit('allocation-update', { studentId: allocation.student.toString(), updatedAt: new Date() });
 
     res.json({ message: 'Allocation cancelled, seat returned to pool' });
   } catch (error) {

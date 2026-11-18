@@ -1,7 +1,6 @@
 /* ============================================================
   WCE ACAP Round Portal – Premium Animation Layer
    ============================================================ */
-
 /* ---------- Design Tokens (animation-specific) ---------- */
 :root {
   --anim-tea-warm: rgba(180, 83, 9, 0.12);
@@ -80,7 +79,7 @@
 .tea-cup-wrapper svg {
   width: 100%;
   height: 100%;
-  filter: drop-shadow(0 8px 24px rgba(0,0,0,0.3));
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.3));
 }
 
 /* ---- Lunch Container SVG ---- */
@@ -96,7 +95,7 @@
 .lunch-container-wrapper svg {
   width: 100%;
   height: 100%;
-  filter: drop-shadow(0 8px 24px rgba(0,0,0,0.3));
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.3));
 }
 
 /* ---- Break Title ---- */
@@ -105,7 +104,7 @@
   font-weight: 800;
   letter-spacing: 8px;
   color: #fff;
-  text-shadow: 0 2px 16px rgba(0,0,0,0.3);
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.3);
   margin-top: 12px;
   overflow: hidden;
 }
@@ -150,8 +149,17 @@
 }
 
 @keyframes break-pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
-  50% { opacity: 0.5; box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+  }
+
+  50% {
+    opacity: 0.5;
+    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+  }
 }
 
 /* ---- Break Countdown ---- */
@@ -206,17 +214,59 @@
   animation: particle-float 6s ease-in-out infinite;
 }
 
-.break-particle:nth-child(1) { left: 20%; bottom: 30%; animation-delay: 0s; animation-duration: 7s; }
-.break-particle:nth-child(2) { left: 55%; bottom: 25%; animation-delay: 1.2s; animation-duration: 5.5s; }
-.break-particle:nth-child(3) { left: 35%; bottom: 40%; animation-delay: 2.5s; animation-duration: 8s; }
-.break-particle:nth-child(4) { left: 70%; bottom: 35%; animation-delay: 0.8s; animation-duration: 6.5s; }
-.break-particle:nth-child(5) { left: 45%; bottom: 20%; animation-delay: 3s; animation-duration: 7.5s; }
+.break-particle:nth-child(1) {
+  left: 20%;
+  bottom: 30%;
+  animation-delay: 0s;
+  animation-duration: 7s;
+}
+
+.break-particle:nth-child(2) {
+  left: 55%;
+  bottom: 25%;
+  animation-delay: 1.2s;
+  animation-duration: 5.5s;
+}
+
+.break-particle:nth-child(3) {
+  left: 35%;
+  bottom: 40%;
+  animation-delay: 2.5s;
+  animation-duration: 8s;
+}
+
+.break-particle:nth-child(4) {
+  left: 70%;
+  bottom: 35%;
+  animation-delay: 0.8s;
+  animation-duration: 6.5s;
+}
+
+.break-particle:nth-child(5) {
+  left: 45%;
+  bottom: 20%;
+  animation-delay: 3s;
+  animation-duration: 7.5s;
+}
 
 @keyframes particle-float {
-  0%   { opacity: 0; transform: translateY(0) rotate(0deg); }
-  15%  { opacity: 0.35; }
-  85%  { opacity: 0.15; }
-  100% { opacity: 0; transform: translateY(-120px) rotate(60deg); }
+  0% {
+    opacity: 0;
+    transform: translateY(0) rotate(0deg);
+  }
+
+  15% {
+    opacity: 0.35;
+  }
+
+  85% {
+    opacity: 0.15;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-120px) rotate(60deg);
+  }
 }
 
 /* Tea surface ripple */
@@ -226,8 +276,15 @@
 }
 
 @keyframes tea-ripple {
-  0%, 100% { transform: scaleX(1) scaleY(1); }
-  50% { transform: scaleX(1.02) scaleY(0.97); }
+
+  0%,
+  100% {
+    transform: scaleX(1) scaleY(1);
+  }
+
+  50% {
+    transform: scaleX(1.02) scaleY(0.97);
+  }
 }
 
 /* ============================================================
@@ -268,10 +325,21 @@
   border-radius: 14px 0 0 14px;
 }
 
-.live-notification__accent--info    { background: #2563EB; }
-.live-notification__accent--success { background: #059669; }
-.live-notification__accent--warning { background: #D97706; }
-.live-notification__accent--urgent  { background: #8B1A1A; }
+.live-notification__accent--info {
+  background: #2563EB;
+}
+
+.live-notification__accent--success {
+  background: #059669;
+}
+
+.live-notification__accent--warning {
+  background: #D97706;
+}
+
+.live-notification__accent--urgent {
+  background: #8B1A1A;
+}
 
 .live-notification__body {
   padding: 16px 18px 12px 22px;
@@ -292,10 +360,25 @@
   line-height: 1;
 }
 
-.live-notification__icon--info    { background: rgba(37, 99, 235, 0.1);  color: #2563EB; }
-.live-notification__icon--success { background: rgba(5, 150, 105, 0.1);  color: #059669; }
-.live-notification__icon--warning { background: rgba(217, 119, 6, 0.1);  color: #D97706; }
-.live-notification__icon--urgent  { background: rgba(139, 26, 26, 0.1);  color: #8B1A1A; }
+.live-notification__icon--info {
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563EB;
+}
+
+.live-notification__icon--success {
+  background: rgba(5, 150, 105, 0.1);
+  color: #059669;
+}
+
+.live-notification__icon--warning {
+  background: rgba(217, 119, 6, 0.1);
+  color: #D97706;
+}
+
+.live-notification__icon--urgent {
+  background: rgba(139, 26, 26, 0.1);
+  color: #8B1A1A;
+}
 
 .live-notification__text {
   flex: 1;
@@ -370,14 +453,30 @@
   animation: notif-progress 7s linear forwards;
 }
 
-.live-notification__progress-fill--info    { background: #2563EB; }
-.live-notification__progress-fill--success { background: #059669; }
-.live-notification__progress-fill--warning { background: #D97706; }
-.live-notification__progress-fill--urgent  { background: #8B1A1A; }
+.live-notification__progress-fill--info {
+  background: #2563EB;
+}
+
+.live-notification__progress-fill--success {
+  background: #059669;
+}
+
+.live-notification__progress-fill--warning {
+  background: #D97706;
+}
+
+.live-notification__progress-fill--urgent {
+  background: #8B1A1A;
+}
 
 @keyframes notif-progress {
-  from { transform: scaleX(1); }
-  to   { transform: scaleX(0); }
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
 }
 
 /* ---- Ripple behind notification ---- */
@@ -395,14 +494,32 @@
   animation: notif-ripple 0.6s ease-out forwards;
 }
 
-.live-notification__ripple--info    { border-color: rgba(37, 99, 235, 0.3); }
-.live-notification__ripple--success { border-color: rgba(5, 150, 105, 0.3); }
-.live-notification__ripple--warning { border-color: rgba(217, 119, 6, 0.3); }
-.live-notification__ripple--urgent  { border-color: rgba(139, 26, 26, 0.3); }
+.live-notification__ripple--info {
+  border-color: rgba(37, 99, 235, 0.3);
+}
+
+.live-notification__ripple--success {
+  border-color: rgba(5, 150, 105, 0.3);
+}
+
+.live-notification__ripple--warning {
+  border-color: rgba(217, 119, 6, 0.3);
+}
+
+.live-notification__ripple--urgent {
+  border-color: rgba(139, 26, 26, 0.3);
+}
 
 @keyframes notif-ripple {
-  0%   { transform: translate(-50%, -50%) scale(0.95); opacity: 0.6; }
-  100% { transform: translate(-50%, -50%) scale(1.08); opacity: 0; }
+  0% {
+    transform: translate(-50%, -50%) scale(0.95);
+    opacity: 0.6;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(1.08);
+    opacity: 0;
+  }
 }
 
 /* ---- Icon micro-animations ---- */
@@ -411,9 +528,19 @@
 }
 
 @keyframes notif-icon-pop {
-  0%   { transform: scale(0.5); opacity: 0; }
-  70%  { transform: scale(1.1); }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+
+  70% {
+    transform: scale(1.1);
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .notif-icon-pulse {
@@ -421,9 +548,17 @@
 }
 
 @keyframes notif-icon-pulse-kf {
-  0%   { transform: scale(1); }
-  30%  { transform: scale(1.15); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+
+  30% {
+    transform: scale(1.15);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
 .notif-icon-rotate {
@@ -431,9 +566,17 @@
 }
 
 @keyframes notif-icon-rotate-kf {
-  0%   { transform: rotate(0deg); }
-  50%  { transform: rotate(180deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  50% {
+    transform: rotate(180deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .notif-icon-shake {
@@ -441,12 +584,29 @@
 }
 
 @keyframes notif-icon-shake-kf {
-  0%   { transform: translateX(0); }
-  20%  { transform: translateX(-3px); }
-  40%  { transform: translateX(3px); }
-  60%  { transform: translateX(-2px); }
-  80%  { transform: translateX(1px); }
-  100% { transform: translateX(0); }
+  0% {
+    transform: translateX(0);
+  }
+
+  20% {
+    transform: translateX(-3px);
+  }
+
+  40% {
+    transform: translateX(3px);
+  }
+
+  60% {
+    transform: translateX(-2px);
+  }
+
+  80% {
+    transform: translateX(1px);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
 }
 
 .notif-icon-urgent-pulse {
@@ -454,9 +614,20 @@
 }
 
 @keyframes notif-icon-urgent-kf {
-  0%   { transform: scale(1); box-shadow: 0 0 0 0 rgba(139, 26, 26, 0.4); }
-  50%  { transform: scale(1.2); box-shadow: 0 0 0 8px rgba(139, 26, 26, 0); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139, 26, 26, 0); }
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(139, 26, 26, 0.4);
+  }
+
+  50% {
+    transform: scale(1.2);
+    box-shadow: 0 0 0 8px rgba(139, 26, 26, 0);
+  }
+
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(139, 26, 26, 0);
+  }
 }
 
 
@@ -471,8 +642,15 @@
 }
 
 @keyframes live-badge-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.3); }
-  50% { box-shadow: 0 0 0 4px rgba(5, 150, 105, 0); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.3);
+  }
+
+  50% {
+    box-shadow: 0 0 0 4px rgba(5, 150, 105, 0);
+  }
 }
 
 
@@ -480,6 +658,7 @@
    ACCESSIBILITY — prefers-reduced-motion
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
+
   .break-overlay__backdrop--tea,
   .break-overlay__backdrop--lunch {
     backdrop-filter: none;
@@ -579,8 +758,15 @@
    SOUND WAVE BARS — LIVE badge equalizer animation
    ============================================================ */
 @keyframes notif-sound-wave {
-  0%, 100% { transform: scaleY(0.5); }
-  50%      { transform: scaleY(1.3); }
+
+  0%,
+  100% {
+    transform: scaleY(0.5);
+  }
+
+  50% {
+    transform: scaleY(1.3);
+  }
 }
 
 /* ============================================================

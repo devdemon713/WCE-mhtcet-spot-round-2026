@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { Client } from '@stomp/stompjs';
+import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
+import { io } from 'socket.io-client';
 
 const SocketContext = createContext();
 
@@ -10,63 +10,51 @@ export function useSocket() {
 export function SocketProvider({ children }) {
   const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
+  const [clientsCount, setClientsCount] = useState(0);
+  const socketRef = useRef(null);
+  // Guard against StrictMode double-mount creating two sockets
+  const initialized = useRef(false);
 
   useEffect(() => {
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:8082';
-    const websocketUrl = socketUrl.replace(/^http/, 'ws') + '/ws/websocket';
-    const listeners = new Map();
-    const topics = [
-      'seat-update',
-      'seats-reset',
-      'round-update',
-      'announcement-update',
-      'admin-alert',
-      'break-start',
-      'break-end',
-      'allocation-update',
-      'allocation-batch-complete'
-    ];
+    if (initialized.current) return;
+    initialized.current = true;
 
-    const socketInstance = {
-      on(event, handler) {
-        if (!listeners.has(event)) listeners.set(event, new Set());
-        listeners.get(event).add(handler);
-      },
-      off(event, handler) {
-        if (!listeners.has(event)) return;
-        if (handler) listeners.get(event).delete(handler);
-        else listeners.delete(event);
-      }
-    };
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
-    const stompClient = new Client({
-      brokerURL: websocketUrl,
-      reconnectDelay: 5000,
-      onConnect: () => {
-        setConnected(true);
-        topics.forEach((topic) => {
-          stompClient.subscribe(`/topic/${topic}`, (message) => {
-            const data = JSON.parse(message.body);
-            listeners.get(topic)?.forEach((handler) => handler(data));
-          });
-        });
-      },
-      onWebSocketClose: () => setConnected(false),
-      onStompError: () => setConnected(false)
+    const socketInstance = io(socketUrl, {
+      transports: ['websocket', 'polling'],
+      reconnectionDelay: 1000,
+      reconnectionAttempts: Infinity,
+      forceNew: false,
     });
 
-    stompClient.activate();
+    socketRef.current = socketInstance;
+
+    socketInstance.on('connect', () => {
+      setConnected(true);
+      console.log('✅ Socket.IO connected:', socketInstance.id);
+    });
+
+    socketInstance.on('disconnect', () => {
+      setConnected(false);
+      console.log('❌ Socket.IO disconnected');
+    });
+
+    socketInstance.on('clients-count', (count) => {
+      setClientsCount(count);
+    });
+
     setSocket(socketInstance);
 
     return () => {
-      setConnected(false);
-      stompClient.deactivate();
-      listeners.clear();
+      initialized.current = false;
+      socketInstance.disconnect();
+      socketRef.current = null;
     };
   }, []);
 
   return (
-    <SocketContext.Provider value={{ socket, connected, clientsCount: 0 }}>
+    <SocketContext.Provider value={{ socket, connected, clientsCount }}>
       {children}
     </SocketContext.Provider>
   );
