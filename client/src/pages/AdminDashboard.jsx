@@ -258,8 +258,16 @@ function AdminDashboard() {
       showMsg("Student's seat has been secured successfully!");
       setSelectedStudent('');
       setSelectedBranch('');
-      // Await the full refetch so UI updates immediately without needing page reload
-      await fetchAll();
+      // Only refresh stats + branches (lightweight) — socket already updated the student status
+      // Do NOT await fetchAll() — that fetches 4562 students and causes the "Allocating..." delay
+      Promise.all([
+        axios.get('/api/students/stats').then(r => setStats(r.data)).catch(() => {}),
+        axios.get('/api/branches').then(r => setBranches(r.data)).catch(() => {}),
+      ]);
+      // Update the allocated student's status directly in the list (instant, no server round-trip)
+      setStudents(prev => prev.map(s =>
+        s._id === selectedStudent ? { ...s, allocationStatus: 'allocated' } : s
+      ));
     } catch (err) {
       showMsg('Allocation failed: ' + (err.response?.data?.message || err.message));
     }
@@ -286,7 +294,19 @@ function AdminDashboard() {
     try {
       await axios.delete(`/api/allocation/${alloId}`);
       showMsg('Allocation cancelled, seat returned.');
-      await fetchAll();
+      // Lightweight refresh — don't block on full 4562-student fetch
+      Promise.all([
+        axios.get('/api/students/stats').then(r => setStats(r.data)).catch(() => {}),
+        axios.get('/api/branches').then(r => setBranches(r.data)).catch(() => {}),
+        axios.get('/api/allocation/history').then(r => setAllocations(r.data)).catch(() => {}),
+      ]);
+      // Mark the student as pending in the existing list immediately
+      const allo = allocations.find(a => a._id === alloId);
+      if (allo?.student?._id) {
+        setStudents(prev => prev.map(s =>
+          s._id === allo.student._id ? { ...s, allocationStatus: 'pending' } : s
+        ));
+      }
     } catch (err) {
       showMsg('Error: ' + (err.response?.data?.message || err.message));
     }
@@ -323,7 +343,14 @@ function AdminDashboard() {
       setUpgradeStudent('');
       setUpgradeFromBranch('');
       setUpgradeToBranch('');
-      await fetchAll();
+      // Lightweight refresh — socket already updated branches live
+      Promise.all([
+        axios.get('/api/students/stats').then(r => setStats(r.data)).catch(() => {}),
+        axios.get('/api/branches').then(r => setBranches(r.data)).catch(() => {}),
+      ]);
+      setStudents(prev => prev.map(s =>
+        s._id === upgradeStudent ? { ...s, allocationStatus: 'allocated' } : s
+      ));
     } catch (err) {
       showMsg('Upgrade failed: ' + (err.response?.data?.message || err.message));
     }
