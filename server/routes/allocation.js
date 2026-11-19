@@ -6,9 +6,24 @@ const Allocation = require('../models/Allocation');
 const Round = require('../models/Round');
 const { auth, adminOnly } = require('../middleware/auth');
 
+// ── Module-level round cache ─────────────────────────────────────────────────
+// Round changes rarely — cache it for 60s to avoid a DB hit on every allocation.
+let _cachedRound = null;
+let _roundCachedAt = 0;
+async function getCachedRound() {
+  const now = Date.now();
+  if (_cachedRound && now - _roundCachedAt < 60000) return _cachedRound;
+  _cachedRound = await Round.findOne().sort({ createdAt: -1 }).lean();
+  _roundCachedAt = now;
+  return _cachedRound;
+}
+// Call this whenever the round is updated so cache is immediately invalidated
+function invalidateRoundCache() { _cachedRound = null; _roundCachedAt = 0; }
+
 // Helper: Push allocation news into the announcement ticker in real-time
 async function pushAllocationAnnouncement(io, studentName, meritNumber, branchName, branchType, category, seatType) {
   try {
+    // Use fresh non-lean Round (needs .save()) — but don't block the allocation response
     const round = await Round.findOne().sort({ createdAt: -1 });
     if (!round) return;
     const typeLabel = seatType === 'ladies' ? '(Ladies)' : '';
@@ -192,8 +207,8 @@ router.post('/manual', auth, adminOnly, async (req, res) => {
   try {
     const { studentId, branchId, seatCategory, seatType, seatPool } = req.body;
 
-    // Get current round
-    const currentRound = await Round.findOne().sort({ createdAt: -1 });
+    // Get current round (cached — avoids DB hit on every allocation)
+    const currentRound = await getCachedRound();
 
     const student = await User.findById(studentId);
     if (!student) return res.status(404).json({ message: 'Student not found' });
@@ -259,8 +274,8 @@ router.post('/auto', auth, adminOnly, async (req, res) => {
   try {
     const { branchId } = req.body;
 
-    // Get current round
-    const currentRound = await Round.findOne().sort({ createdAt: -1 });
+    // Get current round (cached — avoids DB hit on each auto-allocation batch)
+    const currentRound = await getCachedRound();
     const currentRoundId = currentRound ? currentRound._id : null;
 
     // ── STEP 1: Sort students by merit ───────────────────────────────────────
