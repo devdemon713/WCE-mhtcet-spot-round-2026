@@ -37,6 +37,9 @@ function Landing() {
         ]);
         setBranches(branchRes.data);
         setRound(roundRes.data);
+        // Polling fallback for break state (when socket is not connected)
+        if (roundRes.data?.breakType) { setBreakType(roundRes.data.breakType); }
+        else { setBreakType(null); }
       } catch (_) {}
     }, 8000);
     return () => clearInterval(interval);
@@ -52,7 +55,12 @@ function Landing() {
       setTimeout(() => setFlashId(null), 1000);
     };
     const onSeatsReset = (data) => { setBranches(data.branches); };
-    const onRoundUpdate = (data) => { setRound(data.round); };
+    const onRoundUpdate = (data) => {
+      setRound(data.round);
+      // Sync break state from round doc (fallback when polling catches it)
+      if (data.round?.breakType) { setBreakType(data.round.breakType); }
+      else if (data.round) { setBreakType(null); }
+    };
     const onAnnouncementUpdate = (data) => { setRound(data.round); };
     const onAdminAlert = (data) => {
       setLiveAlert(data);
@@ -89,6 +97,9 @@ function Landing() {
       ]);
       setBranches(branchRes.data);
       setRound(roundRes.data);
+      // Sync break state from DB on initial load (covers page refresh during a break)
+      if (roundRes.data?.breakType) { setBreakType(roundRes.data.breakType); }
+      else { setBreakType(null); }
     } catch (err) {
       console.error('Fetch error:', err);
     }

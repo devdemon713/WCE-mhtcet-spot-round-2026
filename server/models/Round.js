@@ -51,6 +51,16 @@ const roundSchema = new mongoose.Schema({
   roundNumber: {
     type: Number,
     default: 1
+  },
+  // ── Break state — persisted so polling clients get it even without socket ──
+  breakType: {
+    type: String,
+    enum: ['tea', 'lunch', null],
+    default: null
+  },
+  breakStartedAt: {
+    type: Date,
+    default: null
   }
 }, { timestamps: true });
 

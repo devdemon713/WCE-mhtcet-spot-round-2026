@@ -95,12 +95,17 @@ function AdminDashboard() {
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        const [branchRes, statsRes] = await Promise.all([
+        const [branchRes, statsRes, roundRes] = await Promise.all([
           axios.get('/api/branches'),
           axios.get('/api/students/stats'),
+          axios.get('/api/round/current'),
         ]);
         setBranches(branchRes.data);
         setStats(statsRes.data);
+        setRound(roundRes.data);
+        // Sync break state via polling (critical when socket is not connected)
+        if (roundRes.data?.breakType) { setBreakActive(roundRes.data.breakType); }
+        else { setBreakActive(null); }
       } catch (_) {}
     }, 15000); // every 15s — lightweight, won't hammer the server
     return () => clearInterval(interval);
@@ -199,6 +204,9 @@ function AdminDashboard() {
       syncAnnouncementFields(roundRes.data);
       setAllocations(alloRes.data);
       setRoundSummary(summaryRes.data);
+      // Sync break state from DB on every full fetch
+      if (roundRes.data?.breakType) { setBreakActive(roundRes.data.breakType); }
+      else { setBreakActive(null); }
     } catch (err) {
       console.error('Fetch error:', err);
     }

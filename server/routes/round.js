@@ -179,15 +179,34 @@ router.post('/break', auth, adminOnly, async (req, res) => {
     const { action, type } = req.body;
     const io = req.app.get('io');
 
+    // Persist break state in DB so polling clients get it even when socket isn't connected
+    const round = await Round.findOne().sort({ createdAt: -1 });
+
     if (action === 'start') {
       const breakTypes = ['tea', 'lunch'];
       if (!breakTypes.includes(type)) {
         return res.status(400).json({ message: 'Invalid break type. Use "tea" or "lunch".' });
       }
+      // Save to DB
+      if (round) {
+        round.breakType = type;
+        round.breakStartedAt = new Date();
+        await round.save();
+      }
       io.emit('break-start', { type, startedAt: new Date() });
+      // Also emit round-update so polling clients immediately see breakType
+      if (round) io.emit('round-update', { round: round.toJSON(), updatedAt: new Date() });
       res.json({ message: `${type} break started`, type });
     } else if (action === 'end') {
+      // Clear from DB
+      if (round) {
+        round.breakType = null;
+        round.breakStartedAt = null;
+        await round.save();
+      }
       io.emit('break-end', { endedAt: new Date() });
+      // Also emit round-update so polling clients clear the break overlay
+      if (round) io.emit('round-update', { round: round.toJSON(), updatedAt: new Date() });
       res.json({ message: 'Break ended' });
     } else {
       res.status(400).json({ message: 'Invalid action. Use "start" or "end".' });

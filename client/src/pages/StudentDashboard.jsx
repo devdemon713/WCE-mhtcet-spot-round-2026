@@ -28,12 +28,16 @@ function StudentDashboard() {
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        const [branchRes, alloRes] = await Promise.all([
+        const [branchRes, alloRes, roundRes] = await Promise.all([
           axios.get('/api/branches'),
-          axios.get(`/api/allocation/student/${user?._id || user?.id}`)
+          axios.get(`/api/allocation/student/${user?._id || user?.id}`),
+          axios.get('/api/round/current')
         ]);
         setBranches(branchRes.data);
         setAllocation(alloRes.data);
+        // Sync break state via polling — works even when socket is disconnected
+        if (roundRes.data?.breakType) { setBreakType(roundRes.data.breakType); }
+        else { setBreakType(null); }
       } catch (_) {}
     }, 15000); // every 15s
     return () => clearInterval(interval);
