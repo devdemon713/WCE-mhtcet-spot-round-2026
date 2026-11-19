@@ -25,9 +25,9 @@ function Landing() {
     fetchData();
   }, []);
 
-  // ── Polling fallback: re-fetch branches + round every 8 seconds ──────────────
-  // Ensures data stays current even when socket is disconnected (Render cold starts,
-  // network changes, mobile cross-device access, etc.)
+  // ── Polling fallback: re-fetch round every 5s ────────────────────────────────
+  // Syncs break state + seat data even when socket is disconnected.
+  // 5s is fast enough to catch a break within one polling cycle.
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -37,11 +37,10 @@ function Landing() {
         ]);
         setBranches(branchRes.data);
         setRound(roundRes.data);
-        // Polling fallback for break state (when socket is not connected)
-        if (roundRes.data?.breakType) { setBreakType(roundRes.data.breakType); }
-        else { setBreakType(null); }
+        // Sync break state via polling (works even when socket is not connected)
+        setBreakType(roundRes.data?.breakType || null);
       } catch (_) {}
-    }, 8000);
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -117,10 +116,16 @@ function Landing() {
 
   if (loading) {
     return (
-      <div className="loading">
-        <div className="spinner"></div>
-        <p>Loading seat data...</p>
-      </div>
+      <>
+        {/* Show overlays even during loading — break/alert must work immediately */}
+        <LiveNotification alert={liveAlert} onDismiss={() => setLiveAlert(null)} />
+        <TeaBreakOverlay isActive={breakType === 'tea'} />
+        <LunchBreakOverlay isActive={breakType === 'lunch'} />
+        <div className="loading">
+          <div className="spinner"></div>
+          <p>Loading seat data...</p>
+        </div>
+      </>
     );
   }
 

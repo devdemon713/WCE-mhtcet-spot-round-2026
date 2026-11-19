@@ -18,9 +18,11 @@ export function SocketProvider({ children }) {
     if (initialized.current) return;
     initialized.current = true;
 
-    // Use env var — set VITE_SOCKET_URL to your Render backend URL in production.
-    // Falls back to localhost for local dev.
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+    // Socket URL: use VITE_SOCKET_URL if set, otherwise fall back to VITE_API_URL.
+    // This way if only VITE_API_URL is configured in Vercel dashboard, socket still works.
+    const socketUrl = import.meta.env.VITE_SOCKET_URL
+      || import.meta.env.VITE_API_URL
+      || 'http://localhost:5000';
 
     const socketInstance = io(socketUrl, {
       // polling first → works through Render's proxy / Vercel edge

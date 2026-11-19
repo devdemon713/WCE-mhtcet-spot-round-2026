@@ -122,6 +122,9 @@ function AdminDashboard() {
     };
     const onRoundUpdate = (data) => {
       setRound(data.round);
+      // Sync breakActive from socket round-update (belt-and-suspenders)
+      if (data.round?.breakType) { setBreakActive(data.round.breakType); }
+      else if (data.round) { setBreakActive(null); }
     };
     const onAnnouncementUpdate = (data) => {
       setRound(data.round);
@@ -1673,6 +1676,7 @@ function AdminDashboard() {
                       onClick={async () => {
                         try {
                           await axios.post('/api/round/break', { action: 'start', type: 'tea' });
+                          setBreakActive('tea'); // optimistic update — don't wait for socket
                           showMsg('☕ Tea break started for all users.');
                         } catch (e) {
                           showMsg('Break error: ' + (e.response?.data?.message || e.message));
@@ -1686,6 +1690,7 @@ function AdminDashboard() {
                       onClick={async () => {
                         try {
                           await axios.post('/api/round/break', { action: 'start', type: 'lunch' });
+                          setBreakActive('lunch'); // optimistic update — don't wait for socket
                           showMsg('🍱 Lunch break started for all users.');
                         } catch (e) {
                           showMsg('Break error: ' + (e.response?.data?.message || e.message));
@@ -1701,6 +1706,7 @@ function AdminDashboard() {
                     onClick={async () => {
                       try {
                         await axios.post('/api/round/break', { action: 'end' });
+                        setBreakActive(null); // optimistic update — don't wait for socket
                         showMsg('✅ Break ended for all users.');
                       } catch (e) {
                         showMsg('Break error: ' + (e.response?.data?.message || e.message));
